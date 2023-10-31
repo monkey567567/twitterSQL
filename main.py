@@ -16,23 +16,23 @@ def connect(path):
 def drop_tables():
     global connection, cursor
 
-    drop_users = "DROP TABLE IF EXISTS users;"
-    drop_follows = "DROP TABLE IF EXISTS follows;"
-    drop_tweets = "DROP TABLE IF EXISTS tweets;"
-    drop_hashtags = "DROP TABLE IF EXISTS hashtags;"
-    drop_mentions = "DROP TABLE IF EXISTS mentions;"
-    drop_retweets = "DROP TABLE IF EXISTS retweets;"
-    drop_lists = "DROP TABLE IF EXISTS lists;"
-    drop_includes = "DROP TABLE IF EXISTS includes;"
+    drop_includes = "drop table if exists includes; "
+    drop_lists = "drop table if exists lists; "
+    drop_retweets = "drop table if exists retweets; "
+    drop_mentions = "drop table if exists mentions; "
+    drop_hashtags = "drop table if exists hashtags; "
+    drop_tweets = "drop table if exists tweets; "
+    drop_follows = "drop table if exists follows; "
+    drop_users = "drop table if exists users; "
 
-    cursor.execute(drop_users)
-    cursor.execute(drop_follows)
-    cursor.execute(drop_tweets)
-    cursor.execute(drop_hashtags)
-    cursor.execute(drop_mentions)
-    cursor.execute(drop_retweets)
-    cursor.execute(drop_lists)
     cursor.execute(drop_includes)
+    cursor.execute(drop_lists)
+    cursor.execute(drop_retweets)
+    cursor.execute(drop_mentions)
+    cursor.execute(drop_hashtags)
+    cursor.execute(drop_tweets)
+    cursor.execute(drop_follows)
+    cursor.execute(drop_users)
 
 def define_tables():
     global connection, cursor
