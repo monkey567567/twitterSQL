@@ -3,6 +3,6 @@
 Group member names and ccids (3-4 members)  
   Schan5, Samuel Chan
   nad, Khym Nad 
-  ccid3, name2  
+  azhang7, Andrew Zhang  
 
 # Names of anyone you have collaborated with (as much as it is allowed within the course policy) or a line saying that you did not collaborate with anyone else.  
