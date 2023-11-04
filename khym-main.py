@@ -1,17 +1,6 @@
 import sqlite3
 import time
-
-connection = None
-cursor = None
-
-def connect(path):
-    global connection, cursor
-    
-    connection = sqlite3.connect(path)
-    cursor = connection.cursor()
-    cursor.execute('PRAGMA foreign_keys = ON;')
-    connection.commit()
-    return
+from main_functions import *
 
 def drop_tables():
     global connection, cursor
@@ -85,8 +74,10 @@ CREATE TABLE hashtags (
     mentions_query = '''
 CREATE TABLE mentions (
     tid         int,
-    term        text,                                    primary key (tid,term),
-    foreign key (tid) references tweets,                                foreign key (term) references hashtags
+    term        text,                                    
+    primary key (tid,term),
+    foreign key (tid) references tweets,                                
+    foreign key (term) references hashtags
 );
                     '''
 
@@ -152,7 +143,8 @@ INSERT INTO users(usr, pwd, name, email, city, timezone) VALUES
     (107,'10','steven','DS@nhl.com','PAR',-7),
     (108,'11','Philip','DS@nhl.com','PAR',-7),
     (109,'12','alex','DS@nhl.com','PAR',-7),
-
+    (110,'13','ben','DS@nhl.com','PARRR',-7),
+    (111,'14','khym','DS@nhl.com','PARR',-7),
 
     (29,'5678','Leon Draisaitl','ld@nhl.com','Concord',-7),
     (5,'0123','Davood Rafiei','dr@ualberta.ca','Calgary',-7);
@@ -216,77 +208,19 @@ INSERT INTO includes(lname, member) VALUES
 
     return
 
-def show_more(rows):
-    count = 0
-    if (len(rows) == 0):
-        print("end of page")
-        search_users()
-    while (count != 5):
-        if (len(rows) == 0):
-            print("end of page")
-            search_users()
-        else:
-            print(count +1, rows[0][0])
-            count = count +1
-            rows.pop(0)
-    select_user(rows)
-
-def select_user(rows):
-    text = input("Select user to view (enter 0 to show more): ") 
-    if (text == '0'):
-        show_more(rows)
-    else:
-        return
-
-
-def search_users():
-    end = False
-    while not end:
-        text = "%"+(input("Search Users: "))+"%"
-        # users name matches keyword
-        cursor.execute('''
-                        SELECT users.name 
-                        FROM users 
-                        WHERE users.name LIKE '%s' 
-                        ORDER BY length(users.name)
-                        ''' %(text))
-        rows1 = cursor.fetchall()
-            
-        # users city but not name match the keyword
-        cursor.execute('''
-                        SELECT users.name, users.city
-                        FROM users 
-                        WHERE users.name NOT LIKE '%s' 
-                        AND users.city LIKE '%s' 
-                        ORDER BY length(users.city)
-                        ''' %(text,text))
-        rows2 = cursor.fetchall()
-
-        rows = rows1 + rows2
-
-        # shows only 5 users at a time and prompts the user to see more users or search again
-        count = 0
-        while (count != 5 and len(rows) != 0):
-            print(count +1, rows[0][0])
-            count = count +1
-            rows.pop(0)
-        select_user(rows)
-
 def main():
     global connection, cursor
 
     path = "./test.db"
     connection = sqlite3.connect(path)
-    print(connection.total_changes)
     cursor = connection.cursor()
 
     drop_tables()
     define_tables()
     insert_data()
-    print("after insert_data, # changes:",connection.total_changes)
 
     # finds users where keyword searched is mentioned in the users name and city
-    search_users()                  
+    search_users(cursor)                  
             
     connection.close()
     return
