@@ -68,10 +68,69 @@ def select_user(hidden, shown):
     elif (text == 'p'):
         show_previous(hidden, shown)
         return
-    else:
-        select_user(hidden, shown)
+    elif (text in ['1','2','3','4','5']): # a user is selected
+        for count in range(1,6):
+            print(count, shown[5-count][0])
+            if (count == int(text)):
+                print("--------------------------------------------------------")
+                print("user: ", shown[5-int(text)][0])
+                display_data(shown[5-int(text)][0])
+    else: # catch all invalid inputs
+        for count in range(1,5):
+            print(count, shown[5-count][0])   
 
-def search_users(cursor):
+def display_data(user):
+    # number of tweets
+    cursor.execute('''
+                    SELECT COUNT(tweets.writer) 
+                    FROM tweets 
+                    WHERE tweets.writer = (SELECT users.usr
+                                            FROM users
+                                            WHERE users.name = '%s') 
+                    ''' %(user))
+    nbr_tweets = cursor.fetchall()
+    print("Number of tweets: ",nbr_tweets[0][0])
+
+    # number of people following the user
+    cursor.execute('''
+                    SELECT COUNT(DISTINCT follows.flwee)
+                    FROM follows
+                    WHERE follows.flwer = (SELECT users.usr
+                                            FROM users
+                                            WHERE users.name = '%s')  
+                   ''' %(user))
+    nbr_flwee = cursor.fetchall()
+    print("follows: ",nbr_flwee[0][0],"users")
+
+    # number of people the user is following
+    cursor.execute('''
+                    SELECT COUNT(DISTINCT follows.flwer)
+                    FROM follows
+                    WHERE follows.flwee = (SELECT users.usr
+                                            FROM users
+                                            WHERE users.name = '%s')
+                   ''' %(user))
+    nbr_followers = cursor.fetchall()
+    print("followers: ",nbr_followers[0][0],"users")
+
+    # users tweets from newest to oldest
+    cursor.execute('''
+                    SELECT tweets.text
+                    FROM tweets
+                    WHERE tweets.writer = (SELECT users.usr
+                                            FROM users
+                                            WHERE users.name = '%s')
+                    ORDER BY julianday('now') - julianday(tweets.tdate) DESC
+                   ''' %(user))
+    user_tweets = cursor.fetchall()
+    print("Tweets: ")
+    for i in range(3):
+        print(user_tweets[i][0])
+    
+    print("--------------------------------------------------------")
+
+
+def search_users():
     end = False
     while not end:
         text = "%"+(input("Search Users: "))+"%"
