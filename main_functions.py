@@ -1,4 +1,8 @@
 import sqlite3
+import time
+
+connection = None
+cursor = None
 
 def connect(path):
     global connection, cursor
@@ -42,9 +46,9 @@ def hide(hidden, shown, amount):
         
 def show_previous(hidden, shown):
     # current is the amount of users currently displayed
-    current = len(shown) % 5
+    amount_displayed = len(shown) % 5
     count = 1
-    if (len(shown) - 5 == 0):
+    if (len(shown) == 5):
         while (count <= 5):
             print(count, shown[5-count][0])
             count = count +1
@@ -53,7 +57,7 @@ def show_previous(hidden, shown):
     else:
         # moves the users that were currently shown back into hidden
         # first set of [5,4,3,2,1] is the previous page
-        hide(hidden, shown, current)
+        hide(hidden, shown, amount_displayed)
         # prints the previous page of 5 users
         # shown populated [5,4,3,2,1,5,4,3,2,1] print starts at index 4 and decrements to 0 (5-count)
         while (count <= 5):
@@ -62,19 +66,14 @@ def show_previous(hidden, shown):
     select_user(hidden, shown)
 
 def select_user(hidden, shown):
-    text = (input("Select user to view (enter n to show next p to show previous): ")).lower()
+    text = (input("Input list number to view user (enter n to show next, p to show previous): ")).lower()
     if (text == 'n'):
         show_more(hidden, shown)
     elif (text == 'p'):
         show_previous(hidden, shown)
-        return
     elif (text in ['1','2','3','4','5']): # a user is selected
-        for count in range(1,6):
-            print(count, shown[5-count][0])
-            if (count == int(text)):
-                print("--------------------------------------------------------")
-                print("user: ", shown[5-int(text)][0])
-                display_data(shown[5-int(text)][0])
+        display_current(hidden, shown, text)
+        follow_user(hidden, shown, shown[5-int(text)][0], current_userID)
     else: # catch all invalid inputs
         for count in range(1,5):
             print(count, shown[5-count][0])   
@@ -124,11 +123,58 @@ def display_data(user):
                    ''' %(user))
     user_tweets = cursor.fetchall()
     print("Tweets: ")
-    for i in range(3):
-        print(user_tweets[i][0])
+    if (len(user_tweets) != 0):
+        for i in range(3):
+            print(user_tweets[i][0])
     
     print("--------------------------------------------------------")
 
+def follow_user(hidden, shown, flwee, current_userID):
+    text = (input("Enter 0 to follow (enter n to show next, p to show previous) : ")).lower()
+    if (text == 'n'):
+        show_more(hidden, shown)
+    elif (text == 'p'):
+        show_previous(hidden, shown)
+    elif (text == '0'): # current_user has chosen to follow selected user
+        # finds the user.usr of the selected user
+        cursor.execute('''
+                        SELECT users.usr
+                        FROM users
+                        WHERE users.name = '%s'  
+                        ''' %(flwee))
+        flweeID = cursor.fetchall()
+
+        # inserts the follower and followee and the start_date as a new row in the follows table
+        cursor.execute('''
+                        INSERT INTO follows(flwer, flwee, start_date) VALUES
+                            (%d, %d, julianday('now'))
+                        ''' %(int(current_userID), int(flweeID[0][0])))
+        connection.commit()
+        select_user(hidden, shown)
+    elif (text in ['1','2','3','4','5']): # a user is selected
+        display_current(hidden, shown, text)
+        follow_user(hidden, shown, shown[5-int(text)][0], current_userID)
+    else:
+        display_current(hidden, shown, text)
+        select_user(hidden, shown)
+
+def display_current(hidden, shown, text):
+    # displays the current list of users and the selected user data
+    amount_displayed = len(shown) % 5
+    if (amount_displayed == 0): # there are 5 users displayed
+        for count in range(1,6):
+            print(count, shown[5-count][0])
+            if (count == int(text)):
+                print("--------------------------------------------------------")
+                print("user: ", shown[5-int(text)][0])
+                display_data(shown[5-int(text)][0])
+    else:
+        for count in range(1,amount_displayed+1):
+            print(count, shown[amount_displayed-count][0])
+            if (count == int(text)):
+                print("--------------------------------------------------------")
+                print("user: ", shown[amount_displayed-int(text)][0])
+                display_data(shown[amount_displayed-int(text)][0])
 
 def search_users():
     end = False
@@ -168,4 +214,4 @@ def search_users():
                 print(count +1, hidden[0][0])
                 count = count +1
                 shown.insert(0,hidden.pop(0))
-            select_user(hidden, shown)
+        select_user(hidden, shown)
