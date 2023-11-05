@@ -1,5 +1,5 @@
 import sqlite3
-import time
+
 
 connection = None
 cursor = None
@@ -19,14 +19,14 @@ def connect(path):
 def drop_tables():
     global connection, cursor
 
-    drop_includes = "drop table if exists includes; "
-    drop_lists = "drop table if exists lists; "
-    drop_retweets = "drop table if exists retweets; "
-    drop_mentions = "drop table if exists mentions; "
-    drop_hashtags = "drop table if exists hashtags; "
-    drop_tweets = "drop table if exists tweets; "
-    drop_follows = "drop table if exists follows; "
-    drop_users = "drop table if exists users; "
+    drop_includes = "DROP TABLE IF EXISTS includes; "
+    drop_lists = "DROP TABLE IF EXISTS lists; "
+    drop_retweets = "DROP TABLE IF EXISTS retweets; "
+    drop_mentions = "DROP TABLE IF EXISTS mentions; "
+    drop_hashtags = "DROP TABLE IF EXISTS hashtags; "
+    drop_tweets = "DROP TABLE IF EXISTS tweets; "
+    drop_follows = "DROP TABLE IF EXISTS follows; "
+    drop_users = "DROP TABLE IF EXISTS users; "
 
     cursor.execute(drop_includes)
     cursor.execute(drop_lists)
@@ -42,85 +42,85 @@ def define_tables():
     global connection, cursor
 
     users_query=   '''
-                        create table users (
-                                usr         int,
-                                pwd	      text,
-                                name        text,
-                                email       text,
-                                city        text,
-                                timezone    float,
-                                primary key (usr)
+                        CREATE TABLE users (
+                                usr         INTEGER,
+                                pwd	        TEXT,
+                                name        TEXT,
+                                email       TEXT,
+                                city        TEXT,
+                                timezone    FLOAT,
+                                PRIMARY KEY (usr)
                             );
                     '''
 
     follows_query=  '''
-                        create table follows (
-                                flwer       int,
-                                flwee       int,
-                                start_date  date,
-                                primary key (flwer,flwee),
-                                foreign key (flwer) references users,
-                                foreign key (flwee) references users
+                        CREATE TABLE follows (
+                                flwer       INTEGER,
+                                flwee       INTEGER,
+                                start_date  DATE,
+                                PRIMARY KEY (flwer,flwee),
+                                FOREIGN KEY (flwer) REFERENCES users,
+                                FOREIGN KEY (flwee) REFERENCES users
                                 );
                     '''
 
     tweets_query= '''
-                        create table tweets (
-                                tid	      int,
-                                writer      int,
-                                tdate       date,
-                                text        text,
-                                replyto     int,
-                                primary key (tid),
-                                foreign key (writer) references users,
-                                foreign key (replyto) references tweets
+                        CREATE TABLE tweets (
+                                tid	        INTEGER,
+                                writer      INTEGER,
+                                tdate       DATE,
+                                text        TEXT,
+                                replyto     INTEGER,
+                                PRIMARY KEY (tid),
+                                FOREIGN KEY (writer) REFERENCES users,
+                                FOREIGN KEY (replyto) REFERENCES tweets
                             );
                     '''
     
     hashtags_query = '''
-                        create table hashtags (
-                                term        text,
-                                primary key (term)
+                        CREATE TABLE hashtags (
+                                term        TEXT,
+                                PRIMARY KEY (term)
                             );
                     '''
     
     mentions_query= '''
-                        create table mentions (
-                                tid         int,
-                                term        text,
-                                primary key (tid,term),
-                                foreign key (tid) references tweets,
-                                foreign key (term) references hashtags
+                        CREATE TABLE mentions (
+                                tid         INTEGER,
+                                term        TEXT,
+                                PRIMARY KEY (tid,term),
+                                FOREIGN KEY (tid) REFERENCES tweets,
+                                FOREIGN KEY (term) REFERENCES hashtags
                             );
                     '''
     
     retweets_query = '''
-                        create table retweets (
-                                usr         int,
-                                tid         int,
-                                rdate       date,
-                                primary key (usr,tid),
-                                foreign key (usr) references users,
-                                foreign key (tid) references tweets
+                        CREATE TABLE retweets (
+                                usr         INTEGER,
+                                tid         INTEGER,
+                                rdate       DATE,
+                                PRIMARY KEY (usr,tid),
+                                FOREIGN KEY (usr) REFERENCES users,
+                                FOREIGN KEY (tid) REFERENCES tweets
                             );
                     '''
     
     lists_query= '''
-                        create table lists (
-                                lname        text,
-                                owner        int,
-                                primary key (lname),
-                                foreign key (owner) references users
+                        CREATE TABLE lists (
+                                lname        TEXT,
+                                owner        INTEGER,
+                                PRIMARY KEY (lname),
+                                FOREIGN KEY (owner) REFERENCES users
                             );
                     '''
     
     includes_query = '''
-                        create table includes (
-                                lname       text,
-                                member      int,
-                                primary key (lname,member),
-                                foreign key (lname) references lists,
-                                foreign key (member) references users
+                        CREATE TABLE includes (
+                                lname       TEXT,
+                                member      INTEGER,
+                                PRIMARY KEY (lname,member),
+                                FOREIGN KEY (lname) REFERENCES lists,
+                                FOREIGN KEY (member) REFERENCES users
                             );
                     '''
 
@@ -141,48 +141,56 @@ def insert_data():
     global connection, cursor
 
     insert_users = '''
-                        insert into users values (97, apple, 'Connor McDavid','cm@nhl.com','Edmonton',-7);
-                        insert into users values (29,pear, 'Leon Draisaitl','ld@nhl.com','Edmonton',-7);
-                        insert into users values (5, banana12, 'Davood Rafiei','dr@ualberta.ca','Edmonton',-7);
+                        INSERT INTO users VALUES 
+                        (97, 'apple', 'Connor McDavid','cm@nhl.com','Edmonton',-7),
+                        (29, 'pear', 'Leon Draisaitl','ld@nhl.com','Edmonton',-7),
+                        (5, 'banana12', 'Davood Rafiei','dr@ualberta.ca','Edmonton',-7);
                     '''
 
     insert_follows =  '''
-                        insert into follows values (29,97,'2021-01-10');
-                        insert into follows values (97,29,'2021-09-01');
-                        insert into follows values (5,97,'2022-11-15');
+                        INSERT INTO follows VALUES 
+                        (29, 97,'2021-01-10'),
+                        (97, 29,'2021-09-01'),
+                        (5, 97,'2022-11-15');
                     '''
     
     insert_tweets =  '''
-                        insert into tweets values (4324, 5,'2023-06-01','Looking for a good book to read. Just finished lone #survivor', 97);
-                        insert into tweets values (23, 97,'2023-02-12','#Edmonton #Oilers had a good game last night.', NULL);
-                        insert into tweets values (3245, 5,'2023-03-01','Go oliers!',97,'2023-02-12', 5);
+                        INSERT INTO tweets VALUES 
+                        (1, 5,'2023-06-01','Looking for a good book to read. Just finished lone #survivor', null),
+                        (2, 97,'2023-02-12','#Edmonton #Oilers had a good game last night.', null),
+                        (3, 5,'2023-03-01','Go oliers!', 2);
                     '''
     
     insert_hashtags =  '''
-                        insert into hashtags values ('survivor');
-                        insert into hashtags values ('oilers');
-                        insert into hashtags values ('edmonton');
+                        INSERT INTO hashtags VALUES 
+                        ('survivor'),
+                        ('oilers'),
+                        ('edmonton');
                     '''
     
     insert_mentions =  '''
-                        insert into mentions values (23, 'survivor');
-                        insert into mentions values (3245, 'edmonton');
-                        insert into mentions values (4324, 'oilers');
+                        INSERT INTO mentions VALUES 
+                        (1, 'survivor'),
+                        (2, 'edmonton'),
+                        (3, 'oilers');
                     '''
     insert_retweets =  '''
-                        insert into retweets values (97, 23, '2023-02-12');
+                        INSERT INTO retweets VALUES 
+                        (29, 2, '2023-02-12');
                     '''
     
     insert_lists =  '''
-                        insert into lists values ('oilers players',5);
-                        insert into lists values ('pc',5);
-                        insert into lists values ('liberal',5);
-                        insert into lists values ('ndp',5);
+                        INSERT INTO lists VALUES 
+                        ('oilers players',5),
+                        ('pc',5),
+                        ('liberal',5),
+                        ('ndp',5);
                     '''
     
     insert_includes =  '''
-                        insert into includes values ('oilers players',97);
-                        insert into includes values ('oilers players',29);
+                        INSERT INTO includes VALUES 
+                        ('oilers players', 97),
+                        ('oilers players', 29);
                     '''
 
     cursor.execute(insert_users)
@@ -196,6 +204,53 @@ def insert_data():
     connection.commit()
     return
 
+def menu():
+
+    user_action = input("")
+
+
+    return
+
+# def show_tweets(user_id):
+
+#     cursor.execute('''
+#         SELECT t.tid, t.text, t.tdate, u.writer
+#         FROM tweets t
+#         JOIN users u ON t.writer = u.usr
+#         WHERE t.writer IN (SELECT followed_id FROM users_following WHERE follower_id = ?)
+#         ORDER BY t.tdate DESC
+#         LIMIT 5
+#     ''', (writer,))
+#     tweets = cursor.fetchall()
+
+#     for tweet in tweets:
+#         print(f"{tweet[3]} tweeted on {tweet[2]}:\n{tweet[1]}\n")
+    
+
+def generate_unique_usr():
+    cursor.execute('SELECT COUNT(usr) FROM users')
+    user_count = cursor.fetchone()[0]
+    next_user_id = user_count + 1
+    unique_usr = f'user_{next_user_id}'
+    return unique_usr
+
+def register_user():
+    name_prompt = input("Please enter your name: ")
+    email_prompt = input("Please enter your email: ")
+    city_prompt = input("Please enter your city: ")
+    time_zone_prompt = input("Please enter your timezone: ")
+    pass_prompt = input("Please create your password: ")
+
+    cursor.execute('SELECT COUNT(usr) FROM users')
+    user_count = cursor.fetchone()[0]
+    next_user_id = user_count + 1
+    unique_usr = f'user_{next_user_id}'
+
+    cursor.execute('INSERT INTO users (usr, pwd, name, email, city, timezone) VALUES (?, ?, ?, ?, ?, ?)',
+                   (unique_usr, str(pass_prompt), str(name_prompt), str(email_prompt), str(city_prompt), float(time_zone_prompt)))
+    
+    cursor.commit()
+    print("Registration successful.")
 
 def main():
     global connection, cursor
@@ -204,17 +259,43 @@ def main():
     connect(path)
     drop_tables()
     define_tables()
+    insert_data()
 
-    prompt = input("Please login or register: ")
+    cursor.execute("SELECT * FROM users")
+    uid = cursor.fetchall()
+    
+
+
+    print(uid)
+    for i in uid:
+        print("user:", i[0])
+        print(i)
+
+
+    login_prompt = input("Please login or register: ")
     entry = False
     while entry == False:
-        if prompt.lower() != "login" and prompt.lower() != "register":
-            print("Invalid entry.")
-            prompt = input("Please login or register: ")
-        elif prompt.lower() == 'q':
+        if login_prompt.lower() == "login":
+            user_prompt = input("Please enter your user name: ")
+            if user_prompt.lower() == 'exit':
+                break
+            pass_prompt = input("Please enter your password: ")
+            if pass_prompt.lower() == 'exit':
+                break
+            
+            
+
+        if login_prompt.lower() == "register":
+            register_user()
+        
+            
+
+        elif login_prompt.lower() == 'exit':
             break
+
         else:
-            entry = True
+            print("Invalid entry.")
+            login_prompt = input("Please login or register: ")
             
 
 
