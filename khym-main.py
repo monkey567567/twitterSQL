@@ -4,7 +4,7 @@ import time
 connection = None
 cursor = None
 
-current_userID = 1
+current_userID = 108
 
 def drop_tables():
     global connection, cursor
@@ -340,7 +340,7 @@ def display_data(user):
                     WHERE tweets.writer = (SELECT users.usr
                                             FROM users
                                             WHERE users.name = '%s')
-                    ORDER BY julianday('now') - julianday(tweets.tdate) DESC
+                    ORDER BY julianday('now') - julianday(tweets.tdate) ASC
                    ''' %(user))
     user_tweets = cursor.fetchall()
     print("Tweets: ")
@@ -442,6 +442,46 @@ def search_users():
                     shown.insert(0,hidden.pop(0))
             select_user(hidden, shown)
 
+def compose_tweet(current_userID, replyto):
+    tweet_text = input("Tweet text: ")
+
+    cursor.execute('''
+                    SELECT COUNT(tweets.tid)
+                    FROM tweets
+    ''')
+    total_tid = cursor.fetchall()
+
+    cursor.execute('''
+                    INSERT INTO tweets(tid, writer, tdate, text, replyto) VALUES
+                        (%d, %d, julianday('now'), '%s', 'replyto')
+                    ''' %((total_tid[0][0]) + 1, current_userID, tweet_text))
+    connection.commit()
+
+    if ('#' in tweet_text):
+        hashtags = find_hashtags(tweet_text)
+        print(hashtags)
+                
+def find_hashtags(tweet_text):
+    hashtags = []
+    print(tweet_text)
+    text_start = tweet_text.find('#',0,len(tweet_text))
+    hashtag_index = text_start
+    #for hashtag_index in range(text_start, len(tweet_text)):
+    while (hashtag_index < len(tweet_text)):
+        if (tweet_text[hashtag_index] == ' '):
+            text_end = hashtag_index
+            hashtags.append(tweet_text[text_start:text_end])
+            text_start = tweet_text.find('#',text_end,len(tweet_text))
+            if (text_start == -1):
+                break
+            hashtag_index = text_start
+        elif (hashtag_index == len(tweet_text)-1):
+            text_end = hashtag_index
+            hashtags.append(tweet_text[text_start:text_end+1])
+        hashtag_index += 1 
+    print(hashtags) 
+    return(hashtags)
+
 def main():
     global connection, cursor
 
@@ -461,7 +501,7 @@ def main():
             search_users() 
         elif (text == '3'):
             # current_user can create a new tweet
-            compose_tweet()
+            compose_tweet(current_userID, None)
         elif (text == '5'):
             end = True
                     
