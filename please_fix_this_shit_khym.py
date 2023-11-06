@@ -782,26 +782,24 @@ def list_followers(user):
         else:
             continue
     
-    while True:
-        see_tweets = input("Would you like to see this user's tweets? (y/n): ")
-        if see_tweets == 'y' or see_tweets == 'Y':
-            while True:
-                while i < max and i < len(tweets):
-                    print("Tweet ID: %d   Tweet date: %s  Tweet: %s" % (tweets[i][0], tweets[i][1], tweets[i][2]))
-                    i += 1
-                if len(tweets) > max:
-                    see_more = input("See more (y/n): ")
-                    if see_more == 'y' or see_more == 'Y':
-                        max += 3
-                        break
-                    else:
-                        break
+    see_tweets = input("Would you like to see this user's tweets? (y/n): ")
+    while see_tweets != 'y' and see_tweets != 'Y' and see_tweets != 'N' and see_tweets != 'n':
+        see_tweets = input("would you like to see this user's tweets? (y/n): ")
+    if see_tweets == 'y' or see_tweets == 'Y':
+        while True:
+            while i < max and i < len(tweets):
+                print("Tweet ID: %d   Tweet date: %s  Tweet: %s" % (tweets[i][0], tweets[i][1], tweets[i][2]))
+                i += 1
+            if len(tweets) > max:
+                see_more = input("See more (y/n): ")
+                while see_more != 'y' and see_more != 'Y' and see_more != 'n' and see_more != 'N':
+                    see_more = input('See more (y/n)')
+                if see_more == 'y' or see_more == 'Y':
+                    max += 3
                 else:
-                    break;
-        elif see_tweets == 'n' or see_tweets == 'N':
-            break
-        else:
-            continue
+                    break
+            else:
+                break
 
     connection.commit()
     return
