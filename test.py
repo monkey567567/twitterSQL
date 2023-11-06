@@ -294,8 +294,6 @@ def show_tweets(user_id):
 def login_user():
     usr = input("Enter your user ID: ")
     pwd = input("Enter your password: ")
-    if usr.lower() == 'exit' or pwd.lower() == 'exit':
-        return
     
     cursor.execute('SELECT usr, name FROM users WHERE usr = ? AND pwd = ?', (usr, pwd))
     user = cursor.fetchone()
