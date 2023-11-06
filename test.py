@@ -8,12 +8,18 @@ def connect(path):
     global connection, cursor
 
     connection = sqlite3.connect(path)
-    if (connection):
+    print(connection)
+    print(connection.total_changes)
+    if (connection.total_changes == 0):
         print("Opened database successfully:")
+    else:
+        print("Invalid database. Please try again.")
+        return False
     cursor = connection.cursor()
     cursor.execute(' PRAGMA foreign_keys=ON; ')
     connection.commit()
-    return
+
+    return connection, cursor
 
 
 def drop_tables():
@@ -137,72 +143,7 @@ def define_tables():
 
     return
 
-def insert_data():
-    global connection, cursor
 
-    insert_users = '''
-                        INSERT INTO users VALUES 
-                        (97, 'apple', 'Connor McDavid','cm@nhl.com','Edmonton',-7),
-                        (29, 'pear', 'Leon Draisaitl','ld@nhl.com','Edmonton',-7),
-                        (5, 'banana12', 'Davood Rafiei','dr@ualberta.ca','Edmonton',-7);
-                    '''
-
-    insert_follows =  '''
-                        INSERT INTO follows VALUES 
-                        (29, 97,'2021-01-10'),
-                        (97, 29,'2021-09-01'),
-                        (5, 97,'2022-11-15');
-                    '''
-    
-    insert_tweets =  '''
-                        INSERT INTO tweets VALUES 
-                        (1, 5,'2023-06-01','Looking for a good book to read. Just finished lone #survivor', null),
-                        (2, 97,'2023-02-12','#Edmonton #Oilers had a good game last night.', null),
-                        (3, 5,'2023-03-01','Go oliers!', 2);
-                    '''
-    
-    insert_hashtags =  '''
-                        INSERT INTO hashtags VALUES 
-                        ('survivor'),
-                        ('oilers'),
-                        ('edmonton');
-                    '''
-    
-    insert_mentions =  '''
-                        INSERT INTO mentions VALUES 
-                        (1, 'survivor'),
-                        (2, 'edmonton'),
-                        (3, 'oilers');
-                    '''
-    insert_retweets =  '''
-                        INSERT INTO retweets VALUES 
-                        (29, 2, '2023-02-12');
-                    '''
-    
-    insert_lists =  '''
-                        INSERT INTO lists VALUES 
-                        ('oilers players',5),
-                        ('pc',5),
-                        ('liberal',5),
-                        ('ndp',5);
-                    '''
-    
-    insert_includes =  '''
-                        INSERT INTO includes VALUES 
-                        ('oilers players', 97),
-                        ('oilers players', 29);
-                    '''
-
-    cursor.execute(insert_users)
-    cursor.execute(insert_follows)
-    cursor.execute(insert_tweets)
-    cursor.execute(insert_hashtags)
-    cursor.execute(insert_mentions)
-    cursor.execute(insert_retweets)
-    cursor.execute(insert_lists)
-    cursor.execute(insert_includes)
-    connection.commit()
-    return
 
 def menu(user_id):
 
@@ -366,22 +307,14 @@ def register_user():
 
 def main():
     global connection, cursor
-
-    path = "./register.db"
+    
+    
+    path = input("Please input database (./example.db): ")
     connect(path)
+
+
     drop_tables()
     define_tables()
-    insert_data()
-
-    # cursor.execute("SELECT * FROM users")
-    # uid = cursor.fetchall()
-    
-    # print(uid)
-    # for i in uid:
-    #     print("user:", i[0])
-    #     print(i)
-
-
     
     entry = False
 
