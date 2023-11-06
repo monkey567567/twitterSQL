@@ -1,5 +1,5 @@
 import sqlite3
-
+import re
 
 connection = None
 cursor = None
@@ -206,51 +206,151 @@ def insert_data():
 
 def menu():
 
-    user_action = input("")
-
-
-    return
-
-# def show_tweets(user_id):
-
-#     cursor.execute('''
-#         SELECT t.tid, t.text, t.tdate, u.writer
-#         FROM tweets t
-#         JOIN users u ON t.writer = u.usr
-#         WHERE t.writer IN (SELECT followed_id FROM users_following WHERE follower_id = ?)
-#         ORDER BY t.tdate DESC
-#         LIMIT 5
-#     ''', (writer,))
-#     tweets = cursor.fetchall()
-
-#     for tweet in tweets:
-#         print(f"{tweet[3]} tweeted on {tweet[2]}:\n{tweet[1]}\n")
+    while True:
+        print("\nMain Menu:")
     
+        choice = input("What would you like to do?")
 
-def generate_unique_usr():
-    cursor.execute('SELECT COUNT(usr) FROM users')
-    user_count = cursor.fetchone()[0]
-    next_user_id = user_count + 1
-    unique_usr = f'user_{next_user_id}'
-    return unique_usr
+        if choice.lower() == "logout":
+            print("Logging out. See you next time.")
+            break
+
+def show_tweets(user_id):
+
+    while True:
+        
+        # Fetch the latest 5 tweets or retweets from users being followed
+        cursor.execute('''
+            SELECT t.tid, t.text, t.tdate, u.name
+            FROM tweets t
+            JOIN users u ON t.writer = u.usr
+            WHERE t.writer IN (SELECT flwee FROM follows WHERE flwer = ?)
+            ORDER BY t.tdate DESC
+            LIMIT 5
+        ''', (user_id,))
+        tweets = cursor.fetchall()
+
+        if not tweets:
+            print("No tweets from users you follow.")
+            break
+
+        print("Latest tweets from users you follow:")
+        for idx, tweet in enumerate(tweets, start=1):
+            print(f"{idx}. {tweet[3]} tweeted on {tweet[2]}:\n{tweet[1]}\n")
+
+        tweet_choice = input("Enter the number of the tweet you want to interact with (or 'more' to see more, or 'exit'): ")
+
+        if tweet_choice.lower() == 'exit':
+            break
+        elif tweet_choice.lower() == 'more':
+            continue
+        elif tweet_choice.isdigit():
+            tweet_idx = int(tweet_choice) - 1
+            if 0 <= tweet_idx < len(tweets):
+                selected_tweet = tweets[tweet_idx]
+                tweet_id = selected_tweet[0]
+
+                # Display statistics about the selected tweet
+                cursor.execute('''
+                    SELECT COUNT(*) FROM retweets WHERE tid = ?
+                ''', (tweet_id,))
+                retweet_count = cursor.fetchone()[0]
+
+                cursor.execute('''
+                    SELECT COUNT(*) FROM tweets WHERE replyto = ?
+                ''', (tweet_id,))
+                reply_count = cursor.fetchone()[0]
+
+                print(f"Tweet by {selected_tweet[3]} on {selected_tweet[2]}:\n{selected_tweet[1]}")
+                print(f"Retweets: {retweet_count} | Replies: {reply_count}")
+
+                # Allow the user to compose a reply or retweet
+                interaction_choice = input("Enter 'reply' to compose a reply, 'retweet' to retweet, or 'back' to return: ")
+
+                if interaction_choice.lower() == 'reply':
+                    reply_text = input("Enter your reply: ")
+                    # Insert the reply into the database with appropriate details
+                    cursor.execute('''
+                        INSERT INTO tweets (writer, tdate, text, replyto)
+                        VALUES (?, DATE('now'), ?, ?)
+                    ''', (user_id, reply_text, tweet_id))
+                    connection.commit()
+                    print("Reply posted successfully!")
+
+                elif interaction_choice.lower() == 'retweet':
+                    # Insert the retweet into the database
+                    cursor.execute('''
+                        INSERT INTO retweets (usr, tid, rdate)
+                        VALUES (?, ?, DATE('now'))
+                    ''', (user_id, tweet_id))
+                    connection.commit()
+                    print("Retweet posted successfully!")
+
+            else:
+                print("Invalid tweet number.")
+        else:
+            print("Invalid input. Please enter 'more', 'exit', or a valid tweet number.")
+    
+def login_user():
+    usr = input("Enter your user ID: ")
+    pwd = input("Enter your password: ")
+    if usr.lower() == 'exit' or pwd.lower() == 'exit':
+        return
+    
+    cursor.execute('SELECT usr, name FROM users WHERE usr = ? AND pwd = ?', (usr, pwd))
+    user = cursor.fetchone()
+
+    if user:
+        print(f"Welcome, {user[1]}!")
+        show_tweets(user[0])
+    else:
+        print("Invalid username or password.")
 
 def register_user():
-    name_prompt = input("Please enter your name: ")
-    email_prompt = input("Please enter your email: ")
+
+    #Valiedate user name
+    
+    # Validate and input user name
+    while True:
+        name_prompt = input("Please enter your name: ")
+        if re.match(r"^[A-Za-z\s]+$", name_prompt):
+            break
+        else:
+            print("Invalid name. Please use only letters and spaces.")
+    
+    # Validate and input user email
+    while True:
+        email_prompt = input("Please enter your email: ")
+        if re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email_prompt):
+            break
+        else:
+            print("Invalid email address. Please use a valid email format.")
+    
+    # Input user city
     city_prompt = input("Please enter your city: ")
-    time_zone_prompt = input("Please enter your timezone: ")
+    
+    # Validate and input user timezone
+    while True:
+        time_zone_prompt = input("Please enter your timezone (e.g., -7.0 or 3.5): ")
+        try:
+            time_zone = float(time_zone_prompt)
+            break
+        except ValueError:
+            print("Invalid timezone. Please enter a numeric value.")
     pass_prompt = input("Please create your password: ")
 
     cursor.execute('SELECT COUNT(usr) FROM users')
     user_count = cursor.fetchone()[0]
     next_user_id = user_count + 1
-    unique_usr = f'user_{next_user_id}'
+    unique_usr = next_user_id
 
-    cursor.execute('INSERT INTO users (usr, pwd, name, email, city, timezone) VALUES (?, ?, ?, ?, ?, ?)',
+    cursor.execute('INSERT OR IGNORE INTO users (usr, pwd, name, email, city, timezone) VALUES (?, ?, ?, ?, ?, ?)',
                    (unique_usr, str(pass_prompt), str(name_prompt), str(email_prompt), str(city_prompt), float(time_zone_prompt)))
     
-    cursor.commit()
+    connection.commit()
     print("Registration successful.")
+
+
 
 def main():
     global connection, cursor
@@ -261,43 +361,40 @@ def main():
     define_tables()
     insert_data()
 
-    cursor.execute("SELECT * FROM users")
-    uid = cursor.fetchall()
+    # cursor.execute("SELECT * FROM users")
+    # uid = cursor.fetchall()
     
+    # print(uid)
+    # for i in uid:
+    #     print("user:", i[0])
+    #     print(i)
 
 
-    print(uid)
-    for i in uid:
-        print("user:", i[0])
-        print(i)
-
-
-    login_prompt = input("Please login or register: ")
+    
     entry = False
+
     while entry == False:
+        login_prompt = input("Please login or register: ")
+
         if login_prompt.lower() == "login":
-            user_prompt = input("Please enter your user name: ")
-            if user_prompt.lower() == 'exit':
-                break
-            pass_prompt = input("Please enter your password: ")
-            if pass_prompt.lower() == 'exit':
-                break
-            
-            
+            login_user()
+            menu()
 
         if login_prompt.lower() == "register":
             register_user()
-        
+
+            cursor.execute("SELECT * FROM users")
+            uid = cursor.fetchall()
+            print(uid)
+
+            menu()
             
 
         elif login_prompt.lower() == 'exit':
             break
 
         else:
-            print("Invalid entry.")
-            login_prompt = input("Please login or register: ")
-            
-
+            print("Invalid input. Please try again.")
 
     drop_tables()
     
