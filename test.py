@@ -204,16 +204,21 @@ def insert_data():
     connection.commit()
     return
 
-def menu():
+def menu(user_id):
 
     while True:
-        print("\nMain Menu:")
+        print("---------------------\nMain Menu:")
+        print("1. View and interact with tweets from users you follow")
     
-        choice = input("What would you like to do?")
+        choice = input("What would you like to do? ")
 
-        if choice.lower() == "logout":
+        if choice == "1":
+            show_tweets(user_id)
+        elif choice.lower() == "logout":
             print("Logging out. See you next time.")
             break
+        else:
+            print("Invalid input. Please try again.")
 
 def show_tweets(user_id):
 
@@ -230,15 +235,18 @@ def show_tweets(user_id):
         ''', (user_id,))
         tweets = cursor.fetchall()
 
+        # If no tweets exist from users being followed exit show_tweets
         if not tweets:
             print("No tweets from users you follow.")
             break
 
+        # List latest tweets from users being followed
         print("Latest tweets from users you follow:")
         for idx, tweet in enumerate(tweets, start=1):
             print(f"{idx}. {tweet[3]} tweeted on {tweet[2]}:\n{tweet[1]}\n")
 
-        tweet_choice = input("Enter the number of the tweet you want to interact with (or 'more' to see more, or 'exit'): ")
+        # Interact with tweets
+        tweet_choice = input("Enter the id of the tweet you want to interact with (or 'more' to see more, or 'exit'): ")
 
         if tweet_choice.lower() == 'exit':
             break
@@ -280,7 +288,7 @@ def show_tweets(user_id):
                 elif interaction_choice.lower() == 'retweet':
                     # Insert the retweet into the database
                     cursor.execute('''
-                        INSERT INTO retweets (usr, tid, rdate)
+                        INSERT OR IGNORE INTO retweets (usr, tid, rdate)
                         VALUES (?, ?, DATE('now'))
                     ''', (user_id, tweet_id))
                     connection.commit()
@@ -295,14 +303,18 @@ def login_user():
     usr = input("Enter your user ID: ")
     pwd = input("Enter your password: ")
     
+    valid = True
+
     cursor.execute('SELECT usr, name FROM users WHERE usr = ? AND pwd = ?', (usr, pwd))
     user = cursor.fetchone()
 
     if user:
         print(f"Welcome, {user[1]}!")
-        show_tweets(user[0])
+        return user[0]
+
     else:
         print("Invalid username or password.")
+        return None
 
 def register_user():
 
@@ -347,6 +359,8 @@ def register_user():
     
     connection.commit()
     print("Registration successful.")
+    return unique_usr
+
 
 
 
@@ -371,25 +385,29 @@ def main():
     
     entry = False
 
-    while entry == False:
-        login_prompt = input("Please login or register: ")
+    while True:
+        login_prompt = input("Please login or register (or 'exit' to quit): ")
 
         if login_prompt.lower() == "login":
-            login_user()
-            menu()
+            user_id = login_user()
+            if user_id is not None:
+                menu(user_id)
+                entry = True
 
         if login_prompt.lower() == "register":
-            register_user()
+            new_user = register_user()
 
             cursor.execute("SELECT * FROM users")
             uid = cursor.fetchall()
             print(uid)
 
-            menu()
+            menu(new_user)
             
 
         elif login_prompt.lower() == 'exit':
             break
+        elif entry:
+            pass
 
         else:
             print("Invalid input. Please try again.")
