@@ -4,7 +4,7 @@ import time
 connection = None
 cursor = None
 
-current_userID = 108
+current_userID = 101
 
 def drop_tables():
     global connection, cursor
@@ -393,12 +393,14 @@ def follow_user(hidden, shown, flwee, current_userID):
         flweeID = cursor.fetchall()
         # finds all the people following the selected user
         cursor.execute('''
-                        SELECT DISTINCT follows.flwer
+                        SELECT follows.flwer
                         FROM follows
-                        WHERE follows.flwee = '%s'
-                       ''' %(flwee))
+                        WHERE follows.flwee = '%d'
+                       ''' %(flweeID[0][0]))
         all_flwers = cursor.fetchall()
+        print("all_flwers: ", all_flwers)
         all_flwers = clean_rows(all_flwers)
+        print("all_flwers: ", all_flwers)
         if (flweeID[0][0] == current_userID): # user can not follow themselves
             print("User can not follow themselves")
         elif (current_userID in all_flwers): # user can not follow a user they're already following 
@@ -410,6 +412,7 @@ def follow_user(hidden, shown, flwee, current_userID):
                                 ('%d', '%d', julianday('now'))
                             ''' %(int(current_userID), int(flweeID[0][0])))
             connection.commit()
+            display_follows()
         display_current(hidden, shown, text, False)
         select_user(hidden, shown, current_userID)
     elif (text in ['1','2','3','4','5'] and current_shown + 5 == 5): # a user is selected out of 5 choices
@@ -520,23 +523,11 @@ def compose_tweet(current_userID, replyto):
     total_tid = cursor.fetchall()
 
     # inserts the new tweet into the tweets table
-    if (replyto == None): # not a retweet
-        cursor.execute('''
-                        INSERT INTO tweets(tid, writer, tdate, text, replyto) VALUES
-                            (:tid, :writer, date(), :text, :replyto)
-                        ''', {"tid":(total_tid[0][0]) + 1, "writer":current_userID, "text":tweet_text, "replyto":replyto})
-        connection.commit()
-    else: # retweet
-        cursor.execute('''
-                        INSERT INTO tweets(tid, writer, tdate, text, replyto) VALUES
-                            (%d, %d, date(), '%s', '%s')
-                        ''' %((total_tid[0][0]) + 1, current_userID, tweet_text, replyto))
-        connection.commit()
-        cursor.execute('''
-                        INSERT INTO retweets(usr, tid, rdate) VALUES
-                            (:usr, :tid, date())
-                        ''', {"usr":current_userID, "tid":(total_tid[0][0]) + 1})
-        connection.commit()
+    cursor.execute('''
+                    INSERT INTO tweets(tid, writer, tdate, text, replyto) VALUES
+                        (:tid, :writer, date(), :text, :replyto)
+                    ''', {"tid":(total_tid[0][0]) + 1, "writer":current_userID, "text":tweet_text, "replyto":replyto})
+    connection.commit()
     display_tweets()
     display_retweets()
 
@@ -600,6 +591,14 @@ def display_retweets(): # TODO: remove, only used for testing
                     ''')
     retweets = cursor.fetchall()
     print(retweets)
+
+def display_follows(): # TODO: remove, only used for testing
+    cursor.execute('''
+                    SELECT *
+                    FROM follows
+                    ''')
+    follows = cursor.fetchall()
+    print(follows)
 
 def display_hashtags(): # TODO: remove, only used for testing
     cursor.execute('''
