@@ -793,7 +793,7 @@ def list_followers(user):
                     see_more = input("See more (y/n): ")
                     if see_more == 'y' or see_more == 'Y':
                         max += 3
-                        continue
+                        break
                     else:
                         break
                 else:
