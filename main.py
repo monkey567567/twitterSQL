@@ -1,5 +1,6 @@
 import sqlite3
 import re
+import getpass
 from datetime import datetime
 
 connection = None
@@ -933,7 +934,7 @@ def show_tweets(user_id):
 def login_user():
 
     usr = input("Enter your user ID: ")
-    pwd = input("Enter your password: ")
+    pwd = getpass.getpass("Enter your password: ")
 
     # fetch usr id from database
     cursor.execute('SELECT usr, name FROM users WHERE usr = ? AND pwd = ?', (usr, pwd))
