@@ -171,26 +171,26 @@ def insert_data():
 
     insert_follows =  '''
                         INSERT INTO follows VALUES
-    (29,97,'2021-01-10'),
-    (97,29,'2021-09-01'),
-    (5,97,'2022-11-15'),
-    (108,111,'2021-09-01'),
-    (108,101,'2021-09-02'),
-    (108,102,'2021-09-03'),
-    (97,108,'2021-09-01'),
-    (111,108,'2021-09-01');
+                        (29,97,'2021-01-10'),
+                        (97,29,'2021-09-01'),
+                        (5,97,'2022-11-15'),
+                        (108,111,'2021-09-01'),
+                        (108,101,'2021-09-02'),
+                        (108,102,'2021-09-03'),
+                        (97,108,'2021-09-01'),
+                        (111,108,'2021-09-01');
 
                     '''
     
     insert_tweets =  '''
                         INSERT INTO tweets VALUES
-    (1,5,'2023-06-01','Looking for a good book to read. Just finished lone #survivor', null),
-    (2,97,'2023-02-12','#Edmonton #Oilers had a good game last night.',null),
-    (3,5,'2023-03-01','Go oliers!',2),
-    (4,108,'2023-04-01','Hello',2),
-    (5,108,'2023-06-01','Hello World',2),
-    (6,108,'2023-05-01','SQL',2),
-    (7,108,'2023-07-01','SQLite!',2);
+                        (1,5,'2023-06-01','Looking for a good book to read. Just finished lone #survivor', null),
+                        (2,97,'2023-02-12','#Edmonton #Oilers had a good game last night.',null),
+                        (3,5,'2023-03-01','Go oliers!',2),
+                        (4,108,'2023-04-01','Hello',2),
+                        (5,108,'2023-06-01','Hello World',2),
+                        (6,108,'2023-05-01','SQL',2),
+                        (7,108,'2023-07-01','SQLite!',2);
                     '''
     
     insert_hashtags =  '''
@@ -817,8 +817,11 @@ def find_hashtags(tweet_text):
         hashtag_index += 1 
     return(hashtags)
 
+# define a menu for the user to interact with
+# - user_id is the current user's id (usr)
 def menu(user_id):
 
+    # loop the menu until the user puts in a valid action or logs out
     while True:
         print("---------------------\nMain Menu:")
         print("1. View and interact with tweets from users you follow")
@@ -827,8 +830,8 @@ def menu(user_id):
         print("4. List followers")
         print("5. Logout")
     
+        # User action
         choice = input("What would you like to do? ")
-
         if choice == "1":
             show_tweets(user_id)
         elif choice == "2":
@@ -843,6 +846,8 @@ def menu(user_id):
         else:
             print("Invalid input. Please try again.")
 
+# View the tweets from users being followed by current user. Allow user to see 'more', 'select tweet', 'reply', and 'retweet'
+# - user_id is the current user's id (usr) 
 def show_tweets(user_id):
 
     while True:
@@ -868,7 +873,7 @@ def show_tweets(user_id):
         for idx, tweet in enumerate(tweets, start=1):
             print(f"{idx}. {tweet[3]} tweeted on {tweet[2]}:\n{tweet[1]}\n")
 
-        # Interact with tweets
+        # Interact with tweets, 'select' or see 'more'
         tweet_choice = input("Enter the id of the tweet you want to interact with (or 'more' to see more, or 'exit'): ")
 
         if tweet_choice.lower() == 'exit':
@@ -895,11 +900,12 @@ def show_tweets(user_id):
                 print(f"Tweet by {selected_tweet[3]} on {selected_tweet[2]}:\n{selected_tweet[1]}")
                 print(f"Retweets: {retweet_count} | Replies: {reply_count}")
 
-                # Allow the user to compose a reply or retweet
+                # Allow the user to compose a 'reply' or 'retweet'
                 interaction_choice = input("Enter 'reply' to compose a reply, 'retweet' to retweet, or 'back' to return: ")
 
                 if interaction_choice.lower() == 'reply':
                     reply_text = input("Enter your reply: ")
+                    
                     # Insert the reply into the database with appropriate details
                     cursor.execute('''
                         INSERT INTO tweets (writer, tdate, text, replyto)
@@ -909,6 +915,7 @@ def show_tweets(user_id):
                     print("Reply posted successfully!")
 
                 elif interaction_choice.lower() == 'retweet':
+                    
                     # Insert the retweet into the database
                     cursor.execute('''
                         INSERT OR IGNORE INTO retweets (usr, tid, rdate)
@@ -922,15 +929,17 @@ def show_tweets(user_id):
         else:
             print("Invalid input. Please enter 'more', 'exit', or a valid tweet number.")
     
+# Validate the login of the user, return user id on successful login, return None on unsucessful login
 def login_user():
+
     usr = input("Enter your user ID: ")
     pwd = input("Enter your password: ")
-    
-    valid = True
 
+    # fetch usr id from database
     cursor.execute('SELECT usr, name FROM users WHERE usr = ? AND pwd = ?', (usr, pwd))
     user = cursor.fetchone()
 
+    # if usr exists return usr id, if user doesn't exist return None 
     if user:
         print(f"Welcome, {user[1]}!")
         return user[0]
@@ -939,10 +948,8 @@ def login_user():
         print("Invalid username or password.")
         return None
 
-#Validate and input user name
+# Input new register into database, return the usr of the new user
 def register_user():
-
-    #Valiedate user name
     
     # Validate and input user name
     while True:
@@ -965,19 +972,23 @@ def register_user():
     
     # Validate and input user timezone
     while True:
-        time_zone_prompt = input("Please enter your timezone (e.g., -7.0 or 3.5): ")
+        time_zone_prompt = input("Please enter your timezone (e.g., -2.0 or 1.5): ")
         try:
             time_zone = float(time_zone_prompt)
             break
         except ValueError:
             print("Invalid timezone. Please enter a numeric value.")
+
+    # Input user password
     pass_prompt = input("Please create your password: ")
 
+    # Find the number of users in the data base, have the new user id be the number of users + 1
     cursor.execute('SELECT COUNT(usr) FROM users')
     user_count = cursor.fetchone()[0]
     next_user_id = user_count + 1
     unique_usr = next_user_id
 
+    # Insert new user into database
     cursor.execute('INSERT OR IGNORE INTO users (usr, pwd, name, email, city, timezone) VALUES (?, ?, ?, ?, ?, ?)',
                    (unique_usr, str(pass_prompt), str(name_prompt), str(email_prompt), str(city_prompt), float(time_zone_prompt)))
     
@@ -986,11 +997,10 @@ def register_user():
     return unique_usr
 
 
-
-
 def main():
     global connection, cursor
 
+    # find database and connect to it
     path = "./register.db"
     connect(path)
     drop_tables()
@@ -999,15 +1009,19 @@ def main():
     
     entry = False
 
+    # loop login and register for user
+    # if current user logs out, return them to this menu
     while True:
         login_prompt = input("Please login or register (or 'exit' to quit): ")
 
+        # user login, if login is successful set entry to True and go to main menu
         if login_prompt.lower() == "login":
             user_id = login_user()
             if user_id is not None:
                 menu(user_id)
                 entry = True
 
+        # register user, if registration is successful go to main menu as the new user
         if login_prompt.lower() == "register":
             new_user = register_user()
 
@@ -1017,7 +1031,7 @@ def main():
 
             menu(new_user)
             
-
+        # break loop if exit 
         elif login_prompt.lower() == 'exit':
             break
         elif entry:
