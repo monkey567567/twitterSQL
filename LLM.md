@@ -7,6 +7,7 @@ Agent: ChatGPT
 Steps:
 	Thought: Need a way to verify the registration inputs for name, email, city, timezone, and password. Make sure that all user inputs are valid and prompt them again if it is invalid. 
 	Input: 
+    
     def register_user():
     name_prompt = input("Please enter your name: ")
     email_prompt = input("Please enter your email: ")
@@ -28,11 +29,11 @@ Steps:
 	can you revise def register_user() to check for invalid inputs?
 
 
-	Output: 
-import re
+Output: 
+	import re
 
-def register_user():
-    print("User Registration:")
+	def register_user():
+    	print("User Registration:")
     
     # Validate and input user name
     while True:
@@ -85,8 +86,9 @@ Agent: Chat GPT
 Steps:
 	Thought: The initial step for show tweets. Find the 5 tweets from users being followed by the current user order by date 
 	Input: Can you give me a function to display 5 tweets from users being followed by current user? Write in sqlite3. 
-	Output:
-def show_tweets(user_id):
+Output:
+	
+ 	def show_tweets(user_id):
     cursor.execute('''
         SELECT t.id, t.tweet_text, t.tweet_date, u.name
         FROM tweets t
@@ -117,9 +119,10 @@ Agent: Chat GPT
 Steps:
 	Thought: expand the function show_tweets that an option should be given to the user that they can see more tweets but 5 at a time, the user should be able to select tweet, see retweets, and number of replies. User should be able to reply to it or retweet it. 
 
-	Input: 
-Given: 
-users_query=   '''
+Input: 
+	
+ 	Given: 
+	users_query=   '''
                         CREATE TABLE users (
                                 usr         INTEGER,
                                 pwd	        TEXT,
@@ -157,8 +160,9 @@ users_query=   '''
     
 Can you expand that function that after a registered user signs in, the system should list all tweets or retweets from users who are being followed; the tweets should be ordered based on date from the latest to the oldest. If there are more than 5 such tweets, only 5 would be shown and the user would be given an option to see more but again 5 at a time. The user should be able to select a tweet and see some statistics about the tweet including the number of retweets and the number of replies. Also the user should be able to compose a reply to it (see the section on composing a tweet), or retweet it (i.e. repost it to all people who follow the user).
 
-	Output:
-def view_tweets_and_interact(user_id):
+Output:
+	
+ 	def view_tweets_and_interact(user_id):
     while True:
         # Fetch the latest 5 tweets or retweets from users being followed
         cursor.execute('''
