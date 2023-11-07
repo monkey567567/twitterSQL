@@ -235,6 +235,188 @@ def insert_data():
     connection.commit()
     return
 
+def latest_to_oldest(tweet):
+    return tweet[2]
+
+def tweets_stats(results):  # please fix this implementation
+    validID = False
+    while not validID:
+        tid = input("Enter a tweet ID to see statistics: ")
+        try:
+            tid = int(tid)
+        except ValueError:
+            print('Invalid ID.')
+            continue
+        for r in results:
+            if tid == r[0]:
+                validID = True
+                break
+    for result in results:
+        if tid == result[0]:
+            # Retrieve statistics about the selected tweet
+            cursor.execute("SELECT COUNT(*) FROM retweets WHERE tid = ?", (tid,))
+            num_retweets = cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM tweets WHERE replyto = ?", (tid,))
+            num_replies = cursor.fetchone()[0]
+
+            # Display the statistics
+            print(f"Number of retweets: {num_retweets}")
+            print(f"Number of replies: {num_replies}")
+    return
+
+def search_tweets(user):
+    global connection, cursor
+    
+    keywords = input("Enter one or more keywords separated by spaces: ").split()
+    results = []
+    for keyword in keywords:
+        keyword = keyword.lower()
+        if keyword.startswith("#"):
+            keyword = keyword[1:]  # Removing the '#' symbol
+            cursor.execute("SELECT t.tid, t.writer, t.tdate, t.text FROM tweets t LEFT JOIN mentions m ON t.tid = m.tid LEFT JOIN hashtags h ON m.term = h.term WHERE h.term = ? ORDER BY tdate DESC;", (keyword,))
+        else:
+            cursor.execute("SELECT tid, writer, tdate, text FROM tweets WHERE text LIKE ? ORDER BY tdate DESC;", (f"%{keyword}%",))
+        results.extend(cursor.fetchall())
+    results.sort(reverse = True, key = latest_to_oldest)
+    clean_rows(results)
+    
+    hidden = results
+    shown = []
+
+    if len(hidden) == 0:
+        print('No tweets contain that keyword')
+        return
+    else:
+        count = 0
+        while (count != 5 and len(hidden) != 0):
+            print(count +1, hidden[0])
+            count = count +1
+            shown.insert(0, hidden.pop(0))
+        select_user(hidden, shown, current_userID)
+        
+    # allow the user to write a reply
+    while True:
+        reply_yn =  input("Would you like to write a reply? (y/n): ")
+        if reply_yn == 'y' or reply_yn == 'Y':
+            compose_tweet(user, tid)
+            break
+        elif reply_yn == 'n' or reply_yn == 'N':
+            break
+        else:
+            print("Invalid input")
+            continue
+    
+    # allow the user to retweet
+    while True:
+        retweet = input("Would you like to retweet? (y/n): ")
+        if retweet == 'y' or retweet == 'Y':
+            current_date = datetime.today().strftime('%Y-%m-%d')
+            try:
+                cursor.execute("INSERT INTO retweets(usr, tid, rdate) VALUES (?, ?, ?);", (user, tid, current_date,))
+            except Exception:
+                print("You've already retweeted this tweet.")
+            break
+        elif retweet == 'n' or retweet == 'N':
+            break
+        else:
+            print("Invalid input")
+            continue
+
+    connection.commit()
+    return
+
+def list_followers(user):
+    global connection, cursor
+
+    cursor.execute("SELECT u.usr, u.name FROM users u INNER JOIN follows f ON u.usr = f.flwer WHERE f.flwee = ?", (user,))
+    followers = cursor.fetchall()
+    if len(followers) == 0:
+        print("You currently have no followers.")
+        return
+    for follower in followers:
+        print("User ID: %d  Name: %s" % (follower[0], follower[1]))
+    validID = False
+    while not validID:
+        select_flwer = input('Enter the ID of a user: ')
+        if not select_flwer.isdigit():
+            continue
+        for f in followers:
+            if int(select_flwer) == f[0]:
+                validID = True
+                break
+    select_flwer = int(select_flwer)
+    cursor.execute("SELECT COUNT(*) FROM tweets WHERE writer = ?", (select_flwer,))
+    num_tweets = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM follows WHERE flwer = ?", (select_flwer,))
+    num_followed = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM follows WHERE flwee = ?", (select_flwer,))
+    num_following = cursor.fetchone()[0]
+
+    cursor.execute("SELECT tid, tdate, text FROM tweets WHERE writer = ? ORDER BY tdate DESC", (select_flwer,))
+    tweets = cursor.fetchall()
+
+    print(f"Number of tweets: {num_tweets}")
+    print(f"Number of followed accounts: {num_followed}")
+    print(f"Number of followers: {num_following}")
+    
+    if len(tweets) == 0:
+        print('This user has not posted any tweets')
+        while True:
+            follow = input("Would you like to follow this user? (y/n): ")
+            if follow == 'y' or follow == 'Y':
+                current_date = datetime.today().strftime('%Y-%m-%d')
+                try:
+                    cursor.execute("INSERT INTO follows(flwer, flwee, start_date) VALUES (%d, %d, %s);" % (user, select_flwer, current_date))
+                except Exception:
+                    print('You already follow this user')
+                return
+            elif follow == 'n' or follow == 'N':
+                return
+            else:
+                continue
+    i = 0
+    max = 3
+    while True:
+        follow = input("Would you like to follow this user? (y/n): ")
+        if follow == 'y' or follow == 'Y':
+            current_date = datetime.today().strftime('%Y-%m-%d')
+            try:
+                cursor.execute("INSERT INTO follows(flwer, flwee, start_date) VALUES (%d, %d, %s);" % (user, select_flwer, current_date))
+            except Exception:
+                print('You already follow this user')
+            break
+        elif follow == 'n' or follow == 'N':
+            break
+        else:
+            continue
+    
+    while True:
+        see_tweets = input("Would you like to see this user's tweets? (y/n): ")
+        if see_tweets == 'y' or see_tweets == 'Y':
+            while True:
+                while i < max and i < len(tweets):
+                    print("Tweet ID: %d   Tweet date: %s  Tweet: %s" % (tweets[i][0], tweets[i][1], tweets[i][2]))
+                    i += 1
+                if len(tweets) > max:
+                    see_more = input("See more (y/n): ")
+                    if see_more == 'y' or see_more == 'Y':
+                        max += 3
+                        break
+                    else:
+                        break
+                else:
+                    break
+        elif see_tweets == 'n' or see_tweets == 'N':
+            break
+        else:
+            continue
+
+    connection.commit()
+    return
+
 def show_more(hidden, shown, current_userID):
     current = len(shown) % 5
     count = 0
