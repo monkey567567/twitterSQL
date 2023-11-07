@@ -188,9 +188,14 @@ def insert_data():
     (2,97,'2023-02-12','#Edmonton #Oilers had a good game last night.',null),
     (3,5,'2023-03-01','Go oliers!',2),
     (4,108,'2023-04-01','Hello',2),
-    (5,108,'2023-06-01','Hello World',2),
-    (6,108,'2023-05-01','SQL',2),
-    (7,108,'2023-07-01','SQLite!',2);
+    (5,108,'2023-03-01','Hello Sam',2),
+    (6,108,'2023-06-01','Hello World1',2),
+    (7,108,'2023-06-02','Hello World2',2),
+    (8,108,'2023-06-03','Hello World3',2),
+    (9,108,'2023-06-04','Hello World4',2),
+    (10,108,'2023-05-01','SQL',2),
+    (11,108,'2023-07-01','SQL is Awesome',2),
+    (12,108,'2023-08-01','SQLite!',2);
                     '''
     
     insert_hashtags =  '''
@@ -240,10 +245,9 @@ def insert_data():
 def latest_to_oldest(tweet):
     return tweet[2]
 
-def tweets_stats(results):  # please fix this implementation
+def tweets_stats(results, tid, user_id, hidden, shown):  # please fix this implementation
     validID = False
     while not validID:
-        tid = input("Enter a tweet ID to see statistics: ")
         try:
             tid = int(tid)
         except ValueError:
@@ -255,6 +259,31 @@ def tweets_stats(results):  # please fix this implementation
                 break
     for result in results:
         if tid == result[0]:
+            print("-"*30)
+            # find the name of the user
+            cursor.execute('''
+                            SELECT users.name
+                            FROM users 
+                            WHERE users.usr == (SELECT DISTINCT tweets.writer
+                                                FROM tweets
+                                                WHERE tweets.tid = :tid)
+                            ''', {"tid": tid})
+            user = cursor.fetchall()
+            user = clean_rows(user)
+            print("Writer: ", user[0])
+
+            cursor.execute('''
+                            SELECT users.usr
+                            FROM users
+                            WHERE users.usr == (SELECT DISTINCT tweets.writer
+                                                FROM tweets
+                                                WHERE tweets.tid = :tid)
+                            ''', {"tid": tid})
+            usr = cursor.fetchall()
+            usr = clean_rows(usr)
+
+            current_tweet = result[3]
+            print("Tweet: ", result[3])
             # Retrieve statistics about the selected tweet
             cursor.execute("SELECT COUNT(*) FROM retweets WHERE tid = ?", (tid,))
             num_retweets = cursor.fetchone()[0]
@@ -265,12 +294,72 @@ def tweets_stats(results):  # please fix this implementation
             # Display the statistics
             print(f"Number of retweets: {num_retweets}")
             print(f"Number of replies: {num_replies}")
-    return
+            print("-"*30)
+    
+    # allow the user to write a reply
+    while True:
+        reply_yn =  input("Would you like to write a reply? (y/n): ")
+        if reply_yn == 'y' or reply_yn == 'Y':
+            compose_tweet(user_id, usr)
+            break
+        elif reply_yn == 'n' or reply_yn == 'N':
+            break
+        else:
+            print("Invalid input")
+            continue
+    
+    # allow the user to retweet
+    while True:
+        retweet = input("Would you like to retweet? (y/n): ")
+        if retweet == 'y' or retweet == 'Y':
+            current_date = datetime.today().strftime('%Y-%m-%d')
+            try:
+                cursor.execute("INSERT INTO retweets(usr, tid, rdate) VALUES (?, ?, ?);", (user_id, tid, current_date,))
+            except Exception:
+                print("You've already retweeted this tweet.")
+            break
+        elif retweet == 'n' or retweet == 'N':
+            break
+        else:
+            print("Invalid input")
+            continue
 
-def search_tweets(user):
+    connection.commit()
+    
+    end = False 
+    while (end != True):
+        print("q: Quit and see searched tweets"+"\n"+("-")*30)
+        choice = (input("Input: ")).lower()
+        if (choice == 'q'):
+            display_current(hidden, shown)
+            end = True
+        else:
+            print("-"*30)
+            print("Writer: ", user[0])
+            print("Tweet: ", current_tweet)
+            print(f"Number of retweets: {num_retweets}")
+            print(f"Number of replies: {num_replies}")
+            print("-"*30)
+            continue
+    select_tweet(hidden, shown, user_id)
+
+def search_tweets(user_ID):
     global connection, cursor
     
-    keywords = input("Enter one or more keywords separated by spaces: ").split()
+    keywords = input("Enter one or more keywords separated by spaces (press enter with no text to quit): ")
+    text = keywords
+    keywords = keywords.split()
+    text = text.strip()
+    end = text.find(' ', 0, len(text))
+    if (end == -1): 
+        text = "%" + text + "%"
+    else:
+        text = "%" + text[0:end] + "%"    
+  
+    if(text == '%%'): # when quit return to choosing functionalities
+        print(("-")*30)
+        menu(user_ID)
+
     results = []
     for keyword in keywords:
         keyword = keyword.lower()
@@ -295,38 +384,54 @@ def search_tweets(user):
             print(count +1, hidden[0])
             count = count +1
             shown.insert(0, hidden.pop(0))
-        select_user(hidden, shown, current_userID)
-        
-    # allow the user to write a reply
-    while True:
-        reply_yn =  input("Would you like to write a reply? (y/n): ")
-        if reply_yn == 'y' or reply_yn == 'Y':
-            compose_tweet(user, tid)
-            break
-        elif reply_yn == 'n' or reply_yn == 'N':
-            break
-        else:
-            print("Invalid input")
-            continue
-    
-    # allow the user to retweet
-    while True:
-        retweet = input("Would you like to retweet? (y/n): ")
-        if retweet == 'y' or retweet == 'Y':
-            current_date = datetime.today().strftime('%Y-%m-%d')
-            try:
-                cursor.execute("INSERT INTO retweets(usr, tid, rdate) VALUES (?, ?, ?);", (user, tid, current_date,))
-            except Exception:
-                print("You've already retweeted this tweet.")
-            break
-        elif retweet == 'n' or retweet == 'N':
-            break
-        else:
-            print("Invalid input")
-            continue
+        select_tweet(hidden, shown, user_ID)
 
-    connection.commit()
-    return
+def select_tweet(hidden, shown, user_id):
+    current_shown = len(shown) % 5 
+    current_five = []
+    tids = []
+    if (current_shown == 0 and hidden != 0):
+        for i in range(5):
+            current_five.append(shown[i])
+            tids.append(str(shown[i][0]))
+        tids.reverse()
+    else:
+        for i in range(current_shown):
+            current_five.append(shown[i])
+            tids.append(str(shown[i][0]))
+        tids.reverse()
+
+    print("\n"+("-")*20+"\n"+"n: Next 5 tweets\np: Previous 5 tweets\nq: Quit"+"\n"+("-")*20)
+    text = (input("Enter a tweet ID to see statistics: ")).lower()
+
+    if (text.strip() == 'n'): # next page
+        show_more(hidden, shown, user_id, 'tweets')
+    elif (text.strip() == 'p'): # previous page
+        show_previous(hidden, shown, user_id, 'tweets')
+    elif (text.strip() == 'q'): # when quit, return to search_tweets()
+        search_tweets(user_id)
+    elif (text.strip() in tids and current_shown + 5 == 5): # a user is selected out of 5 choices
+        selected_tid = 0
+        for i in range(5):
+            if text.strip() == tids[i]:
+                selected_tid = tids[i]
+        tweets_stats(current_five, selected_tid, user_id, hidden, shown)
+    elif (text.strip() in tids and current_shown + 5 > 5): # a user is selected out of less than 5 choices
+        for i in range(current_shown):
+            if text.strip() == tids[i]:
+                selected_tid = tids[i]
+        tweets_stats(current_five, selected_tid, user_id, hidden, shown)
+    else: # catch all invalid inputs
+        print("------------------\nnot a valid input\n------------------")
+        try:
+            int(text)
+
+        except:
+            display_current(hidden, shown) 
+            select_tweet(hidden, shown, user_id)
+        else: 
+            display_current(hidden, shown) 
+            select_tweet(hidden, shown, user_id)
 
 def list_followers(user):
     global connection, cursor
@@ -335,6 +440,7 @@ def list_followers(user):
     followers = cursor.fetchall()
     if len(followers) == 0:
         print("You currently have no followers.")
+        print(("-")*30)
         return
     for follower in followers:
         print("User ID: %d  Name: %s" % (follower[0], follower[1]))
@@ -374,13 +480,16 @@ def list_followers(user):
                     cursor.execute("INSERT INTO follows(flwer, flwee, start_date) VALUES (%d, %d, %s);" % (user, select_flwer, current_date))
                 except Exception:
                     print('You already follow this user')
+                print(("-")*30)
                 return
             elif follow == 'n' or follow == 'N':
+                print(("-")*30)
                 return
             else:
                 continue
     i = 0
     max = 3
+
     while True:
         follow = input("Would you like to follow this user? (y/n): ")
         if follow == 'y' or follow == 'Y':
@@ -395,21 +504,26 @@ def list_followers(user):
         else:
             continue
     
-    while True:
+    end = False
+    while (end != True):
         see_tweets = input("Would you like to see this user's tweets? (y/n): ")
         if see_tweets == 'y' or see_tweets == 'Y':
             while True:
-                while i < max and i < len(tweets):
-                    print("Tweet ID: %d   Tweet date: %s  Tweet: %s" % (tweets[i][0], tweets[i][1], tweets[i][2]))
-                    i += 1
-                if len(tweets) > max:
+                for i in range(max):
+                    if i < len(tweets):
+                        print("Tweet ID: %d   Tweet date: %s  Tweet: %s" % (tweets[i][0], tweets[i][1], tweets[i][2]))
+                    else:
+                        break
+
+                if (len(tweets) > max):
                     see_more = input("See more (y/n): ")
                     if see_more == 'y' or see_more == 'Y':
                         max += 3
-                        break
                     else:
                         break
                 else:
+                    print("-----End of user Tweets-----")
+                    end = True
                     break
         elif see_tweets == 'n' or see_tweets == 'N':
             break
@@ -417,29 +531,46 @@ def list_followers(user):
             continue
 
     connection.commit()
+    print(("-")*30)
     return
 
-def show_more(hidden, shown, current_userID):
+def show_more(hidden, shown, user_id, search_type):
     current = len(shown) % 5
     count = 0
-    # there are no more pages to access
-    if (len(hidden) == 0):
-        for i in range(current):
-            print(i + 1, shown[current-(i+1)])
+    if (current == 0 and len(hidden) == 0):
+        display_current(hidden,shown)
         print("no next page")
-        select_user(hidden, shown, current_userID)
-    # shows the next page of users
-    # if next page < 5 users shows # of users on that page
-    while (count != 5):
-        if (len(hidden) == 0):
-            print("no more users")
-            select_user(hidden, shown, current_userID)
+        if (search_type == 'users'):
+            select_user(hidden, shown, user_id)
         else:
-            # removes users from the hidden list, printing and placing them in shown
-            print(count +1, hidden[0])
-            shown.insert(0,hidden.pop(0))
-            count = count +1
-    select_user(hidden, shown, current_userID)
+            select_tweet(hidden, shown, user_id)
+    else:
+        if (len(hidden) == 0): # there are no more pages to access
+            for i in range(current):
+                print(i + 1, shown[current-(i+1)])
+            print("no next page")
+            if (search_type == 'users'):
+                select_user(hidden, shown, user_id)
+            else:
+                select_tweet(hidden, shown, user_id)
+        # shows the next page of users
+        # if next page < 5 users shows # of users on that page
+        while (count != 5):
+            if (len(hidden) == 0):
+                print("no more users")
+                if (search_type == 'users'):
+                    select_user(hidden, shown, user_id)
+                else:
+                    select_tweet(hidden, shown, user_id)
+            else:
+                # removes users from the hidden list, printing and placing them in shown
+                print(count +1, hidden[0])
+                shown.insert(0,hidden.pop(0))
+                count = count +1
+        if (search_type == 'users'):
+            select_user(hidden, shown, user_id)
+        else:
+            select_tweet(hidden, shown, user_id)
 
 def hide(hidden, shown, amount):
     # places the users shown back into hidden in order [1,2,3,4,5]
@@ -450,66 +581,76 @@ def hide(hidden, shown, amount):
         for i in range(amount):
             hidden.insert(0,shown.pop(0))
         
-def show_previous(hidden, shown, current_userID):
+def show_previous(hidden, shown, user_id, search_type):
     # current is the amount of users currently displayed
     amount_displayed = len(shown) % 5
     count = 1
-    if (len(shown) == 5):
-        while (count <= 5):
-            print(count, shown[5-count])
-            count = count +1
+    try:
+        if (len(shown) == 5):
+            while (count <= 5):
+                print(count, shown[5-count])
+                count = count +1
+            print("no prev. page")
+            if (search_type == 'users'):
+                select_user(hidden, shown, user_id)
+            else:
+                select_tweet(hidden, shown, user_id)
+        else:
+            # moves the users that were currently shown back into hidden
+            # first set of [5,4,3,2,1] is the previous page
+            hide(hidden, shown, amount_displayed)
+            # prints the previous page of 5 users
+            # shown populated [5,4,3,2,1,5,4,3,2,1] print starts at index 4 and decrements to 0 (5-count)
+            while (count <= 5):
+                print(count, shown[5-count])
+                count = count +1
+            if (search_type == 'users'):
+                select_user(hidden, shown, user_id)
+            else:
+                select_tweet(hidden, shown, user_id)
+    except:
+        display_current(hidden, shown)
         print("no prev. page")
-        select_user(hidden, shown, current_userID)
-    else:
-        # moves the users that were currently shown back into hidden
-        # first set of [5,4,3,2,1] is the previous page
-        hide(hidden, shown, amount_displayed)
-        # prints the previous page of 5 users
-        # shown populated [5,4,3,2,1,5,4,3,2,1] print starts at index 4 and decrements to 0 (5-count)
-        while (count <= 5):
-            print(count, shown[5-count])
-            count = count +1
-    select_user(hidden, shown, current_userID)
+        if (search_type == 'users'):
+            select_user(hidden, shown, user_id)
+        else:
+            select_tweet(hidden, shown, user_id)
 
-def select_user(hidden, shown, current_userID):
-    text = (input("Input list number to view user (enter n to show next, p to show previous, q to quit current search): ")).lower()
+def select_user(hidden, shown, user_id):
+    print("\n"+("-")*20+"\n"+"n: Next 5 users\np: Previous 5 users\nq: Quit"+"\n"+("-")*20)
+    text = (input("Input list number to view user: ")).lower()
     current_shown = len(shown) % 5 
-    if (text == 'n'):
-        show_more(hidden, shown, current_userID)
-    elif (text == 'p'):
-        show_previous(hidden, shown, current_userID)
-    elif (text == 'q'): # when quit, return to search_users()
-        search_users(current_userID)
-    elif (text in ['1','2','3','4','5'] and current_shown + 5 == 5): # a user is selected out of 5 choices
-        display_current(hidden, shown, text, True)
-        follow_user(hidden, shown, shown[5-int(text)], current_userID)
-    elif (text in ['1','2','3','4','5'] and current_shown + 5 > 5): # a user is selected out of less than 5 choices
-        display_current(hidden, shown, text, True)
+    if (text.strip() == 'n'): # next page
+        show_more(hidden, shown, user_id, 'users')
+    elif (text.strip() == 'p'): # previous page
+        show_previous(hidden, shown, user_id, 'users')
+    elif (text.strip() == 'q'): # when quit, return to search_users()
+        search_users(user_id)
+    elif (text.strip() in ['1','2','3','4','5'] and current_shown + 5 == 5): # a user is selected out of 5 choices
+        follow_page(hidden, shown, shown[5-int(text)], user_id)
+    elif (text.strip() in ['1','2','3','4','5'] and current_shown + 5 > 5): # a user is selected out of less than 5 choices
         if (int(text) <= current_shown):
             if (len(shown) % 5 < 3): # less than 3 users shown
-                follow_user(hidden, shown, shown[int(text)-1], current_userID)
+                follow_page(hidden, shown, shown[(len(shown) % 5) - int(text)], user_id)
             else: # more than 3 users are shown
-                follow_user(hidden, shown, shown[5-int(text)], current_userID)
-        else:
+                follow_page(hidden, shown, shown[5-int(text)], user_id)
             print("------------------\nnot a valid input\n------------------")
-            display_current(hidden, shown, text, True)
-            select_user(hidden, shown, current_userID)
+            display_current(hidden, shown)
+            select_user(hidden, shown, user_id)
     else: # catch all invalid inputs
         print("------------------\nnot a valid input\n------------------")
         try:
             int(text)
         except:
-            if (current_shown + 5 == 5):
-                display_current(hidden, shown, current_shown, False) 
-                select_user(hidden, shown, current_userID) 
-            else:
-                display_current(hidden, shown, current_shown, False) 
-                select_user(hidden, shown, current_userID)
+            display_current(hidden, shown) 
+            select_user(hidden, shown, user_id)
         else: 
-            display_current(hidden, shown, text, False) 
-            select_user(hidden, shown, current_userID)
+            display_current(hidden, shown) 
+            select_user(hidden, shown, user_id)
 
 def display_data(user):
+    print("--------------------------------------------------------")
+    print("User: ", user)
     # number of tweets
     cursor.execute('''
                     SELECT COUNT(tweets.writer) 
@@ -530,7 +671,7 @@ def display_data(user):
                                             WHERE users.name = '%s')  
                    ''' %(user))
     nbr_flwee = cursor.fetchall()
-    print("follows: ",nbr_flwee[0][0],"users")
+    print("Follows: ",nbr_flwee[0][0],"users")
 
     # number of people the user is following
     cursor.execute('''
@@ -541,7 +682,11 @@ def display_data(user):
                                             WHERE users.name = '%s')
                    ''' %(user))
     nbr_followers = cursor.fetchall()
-    print("followers: ",nbr_followers[0][0],"users")
+    print("Followers: ",nbr_followers[0][0],"users")
+
+def follow_page(hidden, shown, user, user_id):
+
+    display_data(user)
 
     # users tweets from newest to oldest
     cursor.execute('''
@@ -553,107 +698,169 @@ def display_data(user):
                     ORDER BY julianday('now') - julianday(tweets.tdate) ASC
                    ''' %(user))
     user_tweets = cursor.fetchall()
-    print("Tweets: ")
-    if (len(user_tweets) < 3):
-        for i in range(len(user_tweets)):
-            print(user_tweets[i][0])
-    else:
-        for i in range(3):
-            print(user_tweets[i][0])
     
-    print("--------------------------------------------------------")
-
-def follow_user(hidden, shown, flwee, current_userID):
-    text = (input("Enter 0 to follow or view other user (enter n to show next, p to show previous, q to quit current search) : ")).lower()
-    current_shown = len(shown) % 5
-    if (text == 'n'):
-        show_more(hidden, shown, current_userID)
-    elif (text == 'p'):
-        show_previous(hidden, shown, current_userID)
-    elif (text == 'q'): # when quit, return to search_users()
-        search_users(current_userID)
-    elif (text == '0'): # current_user has chosen to follow selected user
-        # finds the user.usr of the selected user
-        cursor.execute('''
-                        SELECT users.usr
-                        FROM users
-                        WHERE users.name = '%s'  
-                        ''' %(flwee))
-        flweeID = cursor.fetchall()
-        # finds all the people following the selected user
-        cursor.execute('''
-                        SELECT follows.flwer
-                        FROM follows
-                        WHERE follows.flwee = '%d'
-                       ''' %(flweeID[0][0]))
-        all_flwers = cursor.fetchall()
-        print("all_flwers: ", all_flwers)
-        all_flwers = clean_rows(all_flwers)
-        print("all_flwers: ", all_flwers)
-        if (flweeID[0][0] == current_userID): # user can not follow themselves
-            print("User can not follow themselves")
-        elif (current_userID in all_flwers): # user can not follow a user they're already following 
-            print("Already following user")
-        else:
-            # inserts the follower and followee and the start_date as a new row in the follows table
-            cursor.execute('''
-                            INSERT INTO follows(flwer, flwee, start_date) VALUES
-                                ('%d', '%d', julianday('now'))
-                            ''' %(int(current_userID), int(flweeID[0][0])))
-            connection.commit()
-            display_follows()
-        display_current(hidden, shown, text, False)
-        select_user(hidden, shown, current_userID)
-    elif (text in ['1','2','3','4','5'] and current_shown + 5 == 5): # a user is selected out of 5 choices
-        display_current(hidden, shown, text, True)
-        follow_user(hidden, shown, shown[5-int(text)], current_userID)
-    elif (text in ['1','2','3','4','5'] and current_shown + 5 > 5): # a user is selected out of less than 5 choices
-        display_current(hidden, shown, text, True)
-        if (int(text) <= current_shown):
-            if (len(shown) % 5 < 3): # less than 3 users shown
-                follow_user(hidden, shown, shown[int(text)-1], current_userID)
-            else: # more than 3 users are shown
-                follow_user(hidden, shown, shown[5-int(text)], current_userID)
-        else:
-            select_user(hidden, shown, current_userID)
-    else:
-        print("------------------\nnot a valid input\n------------------")
-        try:
-            int(text)
-        except:
-            if (current_shown + 5 == 5):
-                display_current(hidden, shown, current_shown, False) 
-                select_user(hidden, shown, current_userID) 
+    end = False
+    more = 0
+    while(end != True):
+        print("Tweets: ")
+        if (len(user_tweets) < 3): # user has less that 3 tweets
+            if (len(user_tweets) == 0):
+                print("User has no tweets")
+                print("--------------------------------------------------------")
             else:
-                display_current(hidden, shown, current_shown, False) 
-                select_user(hidden, shown, current_userID)
-        else: 
-            display_current(hidden, shown, text, False) 
-            select_user(hidden, shown, current_userID)
+                for i in range(len(user_tweets)):
+                    print(user_tweets[i][0])
+                print("--------------------------------------------------------")
+        else: # user has more than 3 tweets
+            if (len(user_tweets) % 3) == 0: # user has tweets that are divisible by 3
+                for i in range(3+(3*more)):
+                    print(user_tweets[i][0])
+                if (3 + 3*more == len(user_tweets)): # the last set of tweets have been printed
+                    print("-----End of user Tweets-----")
+                    break
+                print("--------------------------------------------------------")
+            else:
+                for i in range(3+more): # user has tweets that are not divisible by 3
+                  print(user_tweets[i][0])
+                if (3 + more == len(user_tweets)):
+                    print("-----End of user Tweets-----")
+                print("--------------------------------------------------------")  
+        
+        print(("-")*30+"\n"+"0: Follow user\nm: View more tweets from user\nq: Quit and see searched users"+"\n"+("-")*30)
+        choice = (input("Input: ")).lower()
+        
+        if (choice == 'm'):
+            if (3+more < len(user_tweets)): # user can view more tweets
+                if (len(user_tweets) % 3) == 0: # amount of tweets is divisible by 3
+                    more = more + 1
+                    display_data(user)
+                else: # amount of tweets not divisible by 3
+                    more = more + (len(user_tweets) % 3) 
+                    display_data(user)
+            else: # user can not view more tweets
+                display_data(user)
+        elif (choice == 'q'): # when quit, return to select_user()
+            display_current(hidden, shown)
+            select_user(hidden, shown, user_id)
+            end = True
+        elif (choice == '0'): # current_user has chosen to follow selected user
+            # finds the user.usr of the selected user
+            cursor.execute('''
+                            SELECT users.usr
+                            FROM users
+                            WHERE users.name = '%s'  
+                            ''' %(user))
+            flweeID = cursor.fetchall()
+            # finds all the people following the selected user
+            cursor.execute('''
+                            SELECT follows.flwer
+                            FROM follows
+                            WHERE follows.flwee = '%d'
+                        ''' %(flweeID[0][0]))
+            all_flwers = cursor.fetchall()
+            all_flwers = clean_rows(all_flwers)
+            if (flweeID[0][0] == user_id): # user can not follow themselves
+                print("User can not follow themselves")
+            elif (user_id in all_flwers): # user can not follow a user they're already following 
+                print("----------\nAlready following user\n----------")
+                display_data(user)
+            else:
+                # inserts the follower and followee and the start_date as a new row in the follows table
+                cursor.execute('''
+                                INSERT INTO follows(flwer, flwee, start_date) VALUES
+                                    ('%d', '%d', julianday('now'))
+                                ''' %(int(user_id), int(flweeID[0][0])))
+                connection.commit()
+                display_data(user) 
+        else:
+            print("------------------\nnot a valid input\n------------------")
+            try:
+                int(choice)
+            except:
+                display_data(user) 
+            else: 
+                display_data(user) 
+    
+    end = False
+    already_displayed = 1
+    while (end != True):
 
-def display_current(hidden, shown, text, display):
+        if (already_displayed == 0):
+            display_data(user)
+            for i in range(3+(3*more)):
+                print(user_tweets[i][0])
+            print("-----End of user Tweets-----")
+            print("--------------------------------------------------------")
+        already_displayed == 0
+
+        print(("-")*30+"\n"+"0: Follow user\nm: View more tweets from user\nq: Quit and see searched users"+"\n"+("-")*30)
+        choice = (input("Input: ")).lower()
+        if (choice == 'm'):
+                display_data(user)
+                for i in range(3+(3*more)):
+                    print(user_tweets[i][0])
+                print("-----End of user Tweets-----")
+        elif (choice == 'q'): # when quit, return to select_user()
+            display_current(hidden, shown)
+            select_user(hidden, shown, user_id)
+            end = True
+        elif (choice == '0'): # current_user has chosen to follow selected user
+            # finds the user.usr of the selected user
+            cursor.execute('''
+                            SELECT users.usr
+                            FROM users
+                            WHERE users.name = '%s'  
+                            ''' %(user))
+            flweeID = cursor.fetchall()
+            # finds all the people following the selected user
+            cursor.execute('''
+                            SELECT follows.flwer
+                            FROM follows
+                            WHERE follows.flwee = '%d'
+                        ''' %(flweeID[0][0]))
+            all_flwers = cursor.fetchall()
+            all_flwers = clean_rows(all_flwers)
+            if (flweeID[0][0] == user_id): # user can not follow themselves
+                print("User can not follow themselves")
+            elif (user_id in all_flwers): # user can not follow a user they're already following 
+                print("----------\nAlready following user\n----------")
+                already_displayed = 0
+            else:
+                # inserts the follower and followee and the start_date as a new row in the follows table
+                cursor.execute('''
+                                INSERT INTO follows(flwer, flwee, start_date) VALUES
+                                    ('%d', '%d', julianday('now'))
+                                ''' %(int(user_id), int(flweeID[0][0])))
+                connection.commit()
+                already_displayed = 0 
+        else:
+            print("------------------\nnot a valid input\n------------------")
+            try:
+                int(choice)
+            except:
+                display_data(user) 
+            else: 
+                display_data(user)
+
+def display_current(hidden, shown):
     # when test == 0 no user data can be displayed (important for follow_user count never == int(text))
     # displays remaining amount of users after displaying selected user data
     amount_displayed = len(shown) % 5
-    if (amount_displayed == 0): # there are 5 users displayed
+    if (amount_displayed == 0 and len(shown) != 0): # there are 5 users displayed
         for count in range(1,6):
             print(count, shown[5-count])
-            if (display == True and count == int(text)):
-                print("--------------------------------------------------------")
-                print("user: ", shown[5-int(text)])
-                display_data(shown[5-int(text)])
+    elif (amount_displayed == 0 and len(hidden) != 0): # there were less than 5 users queried
+        amount_displayed = len(hidden) % 5
+        for count in range(1,amount_displayed+1):
+            print(count, hidden[(amount_displayed-1)-count])
+            shown.insert(0,hidden.pop(0))
     else: # there are less than 5 users displayed
         for count in range(1,amount_displayed+1):
             print(count, shown[amount_displayed-count])
-            if (display == True and count == int(text)):
-                print("--------------------------------------------------------")
-                print("user: ", shown[amount_displayed-int(text)])
-                display_data(shown[amount_displayed-int(text)])
 
-def search_users(current_userID):
-    # TODO: handle test case for when user inputs two key words 
-    text = input("Search Users (' ' to quit): ")
-    # only takes in the first key word entry TODO: is this needed?
+def search_users(user_id):
+    text = input("Search Users (press enter with no text to quit): ")
+    text = text.strip()
     end = text.find(' ', 0, len(text))
     if (end == -1): 
         text = "%" + text + "%"
@@ -661,94 +868,98 @@ def search_users(current_userID):
         text = "%" + text[0:end] + "%"    
   
     if(text == '%%'): # when quit return to choosing functionalities
-        return
+        print(("-")*30)
+        menu(user_id)
     else:
-        # users name matches keyword
-        cursor.execute('''
-                        SELECT users.name 
-                        FROM users 
-                        WHERE users.name LIKE '%s' 
-                        ORDER BY length(users.name)
-                        ''' %(text))
-        rows1 = cursor.fetchall()
+        try:
+            # users name matches keyword
+            cursor.execute('''
+                            SELECT users.name 
+                            FROM users 
+                            WHERE users.name LIKE '%s' 
+                            ORDER BY length(users.name)
+                            ''' %(text))
+            rows1 = cursor.fetchall()
                 
-        # users city but not name match the keyword
-        cursor.execute('''
-                        SELECT users.name, users.city
-                        FROM users 
-                        WHERE users.name NOT LIKE '%s' 
-                        AND users.city LIKE '%s' 
-                        ORDER BY length(users.city)
-                        ''' %(text,text))
-        rows2 = cursor.fetchall()
-
-        # all rows are "hidden" since no users are being displayed (populated [1,2,3,4,5])
-        hidden = rows1 + rows2
-        hidden = clean_rows(hidden)
-        # users being displayed (populated [5,4,3,2,1,5,4,3,2,1])
-        shown = []
-
-        if (len(hidden) == 0): # no result for search
-            search_users(current_userID)
+            # users city but not name match the keyword
+            cursor.execute('''
+                            SELECT users.name, users.city
+                            FROM users 
+                            WHERE users.name NOT LIKE '%s' 
+                            AND users.city LIKE '%s' 
+                            ORDER BY length(users.city)
+                            ''' %(text,text))
+            rows2 = cursor.fetchall()
+        except:
+            search_users(user_id)
         else:
-            # shows only 5 users and prompts the user to see more users or search again
-            count = 0
-            while (count != 5 and len(hidden) != 0):
-                # removes users from the hidden list, printing and placing them in shown
-                print(count +1, hidden[0])
-                count = count +1
-                shown.insert(0,hidden.pop(0))
-            select_user(hidden, shown, current_userID)
+            # all rows are "hidden" since no users are being displayed (populated [1,2,3,4,5])
+            hidden = rows1 + rows2
+            hidden = clean_rows(hidden)
+            # users being displayed (populated [5,4,3,2,1,5,4,3,2,1])
+            shown = []
 
-def compose_tweet(current_userID, replyto):
-    # TODO: compose tweet needs to work for retweets i.e. replyto != None
-    tweet_text = input("Tweet text: ")
+            if (len(hidden) == 0): # no result for search
+                search_users(user_id)
+            else:
+                # shows only 5 users and prompts the user to see more users or search again
+                count = 0
+                while (count != 5 and len(hidden) != 0):
+                    # removes users from the hidden list, printing and placing them in shown
+                    print(count +1, hidden[0])
+                    count = count +1
+                    shown.insert(0,hidden.pop(0))
+                select_user(hidden, shown, user_id)
 
-    # creates a new tid for the tweet 
-    cursor.execute('''
-                    SELECT COUNT(tweets.tid)
-                    FROM tweets
-    ''')
-    total_tid = cursor.fetchall()
+def compose_tweet(user_id, replyto):
+    tweet_text = input("Tweet text (press enter with no text to quit): ")
 
-    # inserts the new tweet into the tweets table
-    cursor.execute('''
-                    INSERT INTO tweets(tid, writer, tdate, text, replyto) VALUES
-                        (:tid, :writer, date(), :text, :replyto)
-                    ''', {"tid":(total_tid[0][0]) + 1, "writer":current_userID, "text":tweet_text, "replyto":replyto})
-    connection.commit()
-    display_tweets()
-    display_retweets()
-
-    # determines the hashtags in the tweet_text
-    if ('#' in tweet_text):
-        tweet_hashtags = find_hashtags(tweet_text)
-        # determines if hashtags in tweet_text in table hashtags and updates hashtags and mentions
+    if (tweet_text.strip() == ' '): # quits the function
+        menu(user_id)
+    else:
+        # creates a new tid for the tweet 
         cursor.execute('''
-                        SELECT DISTINCT hashtags.term
-                        FROM hashtags
-                    ''')
-        rows = cursor.fetchall()
-        all_hashtags = clean_rows(rows)
-        # updates hashtags and mentions tables
-        for index in range(len(tweet_hashtags)):
-            if (tweet_hashtags[index] not in all_hashtags): # hashtag in tweet_text not in hashtags table, updates mentions 
-                cursor.execute('''
-                                INSERT INTO hashtags(term) VALUES
-                                    ('%s')
-                                ''' %(tweet_hashtags[index]))
-                cursor.execute('''
-                                INSERT INTO mentions(tid, term) VALUES
-                                    ('%d', '%s')
-                                ''' %((total_tid[0][0]) + 1, tweet_hashtags[index]))
-                connection.commit()
-            else: # hashtag already in the hashtags table, updates mentions
-                cursor.execute('''
-                                INSERT INTO mentions(tid, term) VALUES
-                                    ('%d', '%s')
-                                ''' %((total_tid[0][0]) + 1, tweet_hashtags[index]))
-                connection.commit()
-    display_hashtags()
+                        SELECT COUNT(tweets.tid)
+                        FROM tweets
+        ''')
+        total_tid = cursor.fetchall()
+
+        # inserts the new tweet into the tweets table
+        cursor.execute('''
+                        INSERT INTO tweets(tid, writer, tdate, text, replyto) VALUES
+                            (:tid, :writer, date(), :text, :replyto)
+                        ''', {"tid":(total_tid[0][0]) + 1, "writer":user_id, "text":tweet_text, "replyto":replyto})
+        connection.commit()
+
+        # determines the hashtags in the tweet_text
+        if ('#' in tweet_text):
+            tweet_hashtags = find_hashtags(tweet_text)
+            # determines if hashtags in tweet_text in table hashtags and updates hashtags and mentions
+            cursor.execute('''
+                            SELECT DISTINCT hashtags.term
+                            FROM hashtags
+                        ''')
+            rows = cursor.fetchall()
+            all_hashtags = clean_rows(rows)
+            # updates hashtags and mentions tables
+            for index in range(len(tweet_hashtags)):
+                if (tweet_hashtags[index] not in all_hashtags): # hashtag in tweet_text not in hashtags table, updates mentions 
+                    cursor.execute('''
+                                    INSERT INTO hashtags(term) VALUES
+                                        ('%s')
+                                    ''' %(tweet_hashtags[index]))
+                    cursor.execute('''
+                                    INSERT INTO mentions(tid, term) VALUES
+                                        ('%d', '%s')
+                                    ''' %((total_tid[0][0]) + 1, tweet_hashtags[index]))
+                    connection.commit()
+                else: # hashtag already in the hashtags table, updates mentions
+                    cursor.execute('''
+                                    INSERT INTO mentions(tid, term) VALUES
+                                        ('%d', '%s')
+                                    ''' %((total_tid[0][0]) + 1, tweet_hashtags[index]))
+                    connection.commit()
+    print(("-")*30)
 
 def clean_rows(rows):
     # removes the data from the queried row into a list where each indiviual elemnt is a string 
@@ -756,46 +967,6 @@ def clean_rows(rows):
     for i in range(len(rows)):
         all_elements.append(rows[i][0])
     return(all_elements)
-
-def display_mentions(): # TODO: remove, only used for testing
-    cursor.execute('''
-                    SELECT *
-                    FROM MENTIONS
-                   ''')
-    mentions = cursor.fetchall()
-    print(mentions)
-
-def display_tweets(): # TODO: remove, only used for testing
-    cursor.execute('''
-                    SELECT *
-                    FROM tweets
-                    ''')
-    tweets = cursor.fetchall()
-    print(tweets)
-
-def display_retweets(): # TODO: remove, only used for testing
-    cursor.execute('''
-                    SELECT *
-                    FROM retweets
-                    ''')
-    retweets = cursor.fetchall()
-    print(retweets)
-
-def display_follows(): # TODO: remove, only used for testing
-    cursor.execute('''
-                    SELECT *
-                    FROM follows
-                    ''')
-    follows = cursor.fetchall()
-    print(follows)
-
-def display_hashtags(): # TODO: remove, only used for testing
-    cursor.execute('''
-                    SELECT *
-                    FROM hashtags
-                    ''')
-    hashtags = cursor.fetchall()
-    print(hashtags)
 
 def find_hashtags(tweet_text):
     hashtags = []
@@ -820,31 +991,35 @@ def find_hashtags(tweet_text):
 def menu(user_id):
 
     while True:
-        print("---------------------\nMain Menu:")
+        print("Main Menu:")
         print("1. View and interact with tweets from users you follow")
-        print("2. Search Users")
-        print("3. Compose a tweet")
-        print("4. List followers")
-        print("5. Logout")
+        print("2. Search Tweets")
+        print("3. Search Users")
+        print("4. Compose a tweet")
+        print("5. List followers")
+        print("6. Logout")
+        print(("-")*30)
     
         choice = input("What would you like to do? ")
 
         if choice == "1":
             show_tweets(user_id)
         elif choice == "2":
-            search_users(user_id)
+            search_tweets(user_id)
         elif choice == "3":
-            compose_tweet(user_id, None)
+            search_users(user_id)
         elif choice == "4":
-            list_followers(user_id)
+            compose_tweet(user_id, None)
         elif choice == "5":
+            list_followers(user_id)
+        elif choice == "6":
             print("Logging out. See you next time.")
-            break
+            login_page()
         else:
             print("Invalid input. Please try again.")
 
 def show_tweets(user_id):
-
+    #TODO: can not see more that 5 tweets
     while True:
         
         # Fetch the latest 5 tweets or retweets from users being followed
@@ -854,26 +1029,28 @@ def show_tweets(user_id):
             JOIN users u ON t.writer = u.usr
             WHERE t.writer IN (SELECT flwee FROM follows WHERE flwer = ?)
             ORDER BY t.tdate DESC
-            LIMIT 5
         ''', (user_id,))
         tweets = cursor.fetchall()
 
         # If no tweets exist from users being followed exit show_tweets
         if not tweets:
+            print(("-")*30)
             print("No tweets from users you follow.")
             break
 
         # List latest tweets from users being followed
+        print(("-")*30)
         print("Latest tweets from users you follow:")
         for idx, tweet in enumerate(tweets, start=1):
             print(f"{idx}. {tweet[3]} tweeted on {tweet[2]}:\n{tweet[1]}\n")
 
         # Interact with tweets
-        tweet_choice = input("Enter the id of the tweet you want to interact with (or 'more' to see more, or 'exit'): ")
+        tweet_choice = input("Enter the id of the tweet you want to interact with (or 'm' to see more, or 'q' to quit): ")
 
-        if tweet_choice.lower() == 'exit':
+        if tweet_choice.lower() == 'q':
+            print(("-")*30)
             break
-        elif tweet_choice.lower() == 'more':
+        elif tweet_choice.lower() == 'm':
             continue
         elif tweet_choice.isdigit():
             tweet_idx = int(tweet_choice) - 1
@@ -892,13 +1069,16 @@ def show_tweets(user_id):
                 ''', (tweet_id,))
                 reply_count = cursor.fetchone()[0]
 
+                print(("-")*30+"\n")
                 print(f"Tweet by {selected_tweet[3]} on {selected_tweet[2]}:\n{selected_tweet[1]}")
                 print(f"Retweets: {retweet_count} | Replies: {reply_count}")
+                print("\n"+("-")*30)
 
                 # Allow the user to compose a reply or retweet
-                interaction_choice = input("Enter 'reply' to compose a reply, 'retweet' to retweet, or 'back' to return: ")
+                print(("-")*30+"\n"+"1: reply\n2: retweet\n3: to return"+"\n"+("-")*30)
+                interaction_choice = input("Input: ")
 
-                if interaction_choice.lower() == 'reply':
+                if interaction_choice.lower() == '1': # reply
                     reply_text = input("Enter your reply: ")
                     # Insert the reply into the database with appropriate details
                     cursor.execute('''
@@ -908,7 +1088,7 @@ def show_tweets(user_id):
                     connection.commit()
                     print("Reply posted successfully!")
 
-                elif interaction_choice.lower() == 'retweet':
+                elif interaction_choice.lower() == '2': # retweet
                     # Insert the retweet into the database
                     cursor.execute('''
                         INSERT OR IGNORE INTO retweets (usr, tid, rdate)
@@ -916,7 +1096,44 @@ def show_tweets(user_id):
                     ''', (user_id, tweet_id))
                     connection.commit()
                     print("Retweet posted successfully!")
+                
+                elif interaction_choice.lower() == '3':
+                    break
 
+                else:
+                    end = False
+                    while(end != True):
+                        print(("-")*30+"\n"+"Invalid Input"+"\n"+("-")*30)
+
+                        print(("-")*30+"\n")
+                        print(f"Tweet by {selected_tweet[3]} on {selected_tweet[2]}:\n{selected_tweet[1]}")
+                        print(f"Retweets: {retweet_count} | Replies: {reply_count}")
+                        print("\n"+("-")*30)   
+
+                        print(("-")*30+"\n"+"1: reply\n2: retweet\n3: to return"+"\n"+("-")*30)
+                        interaction_choice = input("Input: ")
+
+                        if interaction_choice.lower() == '1': # reply
+                            reply_text = input("Enter your reply: ")
+                            # Insert the reply into the database with appropriate details
+                            cursor.execute('''
+                                INSERT INTO tweets (writer, tdate, text, replyto)
+                                VALUES (?, DATE('now'), ?, ?)
+                            ''', (user_id, reply_text, tweet_id))
+                            connection.commit()
+                            print("Reply posted successfully!")
+
+                        elif interaction_choice.lower() == '2': # retweet
+                            # Insert the retweet into the database
+                            cursor.execute('''
+                                INSERT OR IGNORE INTO retweets (usr, tid, rdate)
+                                VALUES (?, ?, DATE('now'))
+                            ''', (user_id, tweet_id))
+                            connection.commit()
+                            print("Retweet posted successfully!")
+                        
+                        elif interaction_choice.lower() == '3':
+                            end = True
             else:
                 print("Invalid tweet number.")
         else:
@@ -932,6 +1149,7 @@ def login_user():
     user = cursor.fetchone()
 
     if user:
+        print(("-")*30)
         print(f"Welcome, {user[1]}!")
         return user[0]
 
@@ -985,8 +1203,40 @@ def register_user():
     print("Registration successful.")
     return unique_usr
 
+def login_page():
+    entry = False
 
+    while True:
+        print(("-")*30+"\n"+"1: login\n2: register\n3: Quit"+"\n"+("-")*30)
+        login_prompt = input("Input: ")
 
+        if login_prompt.lower() == "1": # login
+            print(("-")*30+"\n"+"Login"+"\n"+("-")*30)
+            user_id = login_user()
+            if user_id is not None:
+                menu(user_id)
+                entry = True
+
+        if login_prompt.lower() == "2": # register
+            print(("-")*30+"\n"+"Register"+"\n"+("-")*30)
+            new_user = register_user()
+
+            cursor.execute("SELECT * FROM users")
+            uid = cursor.fetchall()
+            print(uid)
+
+            menu(new_user)
+            
+        elif login_prompt.lower() == '3': # Quit
+            drop_tables()
+            connection.commit()
+            connection.close()  
+            quit()
+        elif entry:
+            pass
+
+        else:
+            print("Invalid input. Please try again.")
 
 def main():
     global connection, cursor
@@ -999,37 +1249,8 @@ def main():
     
     entry = False
 
-    while True:
-        login_prompt = input("Please login or register (or 'exit' to quit): ")
+    login_page()
 
-        if login_prompt.lower() == "login":
-            user_id = login_user()
-            if user_id is not None:
-                menu(user_id)
-                entry = True
-
-        if login_prompt.lower() == "register":
-            new_user = register_user()
-
-            cursor.execute("SELECT * FROM users")
-            uid = cursor.fetchall()
-            print(uid)
-
-            menu(new_user)
-            
-
-        elif login_prompt.lower() == 'exit':
-            break
-        elif entry:
-            pass
-
-        else:
-            print("Invalid input. Please try again.")
-
-    drop_tables()
-    
-    connection.commit()
-    connection.close()
     return
 
 
