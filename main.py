@@ -1,5 +1,6 @@
 import sqlite3
 import re
+from datetime import datetime
 
 connection = None
 cursor = None
@@ -234,6 +235,7 @@ def insert_data():
     cursor.execute(insert_includes)
     connection.commit()
     return
+
 
 def latest_to_oldest(tweet):
     return tweet[2]
@@ -822,7 +824,8 @@ def menu(user_id):
         print("1. View and interact with tweets from users you follow")
         print("2. Search Users")
         print("3. Compose a tweet")
-        print("4. Logout")
+        print("4. List followers")
+        print("5. Logout")
     
         choice = input("What would you like to do? ")
 
@@ -833,6 +836,8 @@ def menu(user_id):
         elif choice == "3":
             compose_tweet(user_id, None)
         elif choice == "4":
+            list_followers(user_id)
+        elif choice == "5":
             print("Logging out. See you next time.")
             break
         else:
